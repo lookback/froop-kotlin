@@ -12,11 +12,8 @@ import java.util.concurrent.Semaphore
 //
 //  Global singelton that can redirect the froop logging from .debug()
 var froopLog: (String, String) -> Unit = { label, message ->
-    print("${label} ${message}")
+    print("$label $message")
 }
-
-@kotlin.ExperimentalUnsignedTypes
-private var streamCount: Locker<ULong> = Locker(value = 0uL)
 
 // Stream of values over time. Typically created by a FSink.
 // ```
@@ -36,10 +33,23 @@ private var streamCount: Locker<ULong> = Locker(value = 0uL)
 @kotlin.ExperimentalUnsignedTypes
 open class FStream<T> {
 
+    companion object {
+        @kotlin.ExperimentalUnsignedTypes
+        private var streamCount: Locker<ULong> = Locker(value = 0uL)
+
+        // Create a stream that never emits anything. It stays inerts forever.
+        @kotlin.ExperimentalUnsignedTypes
+        fun <T> never(): FStream<T> {
+            val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
+            stream.inner.withValue() { it.update(null) }
+            return stream
+        }
+    }
+
     val inner: Locker<Inner<T>>
     var parent: Peg? = null
 
-    val ident: ULong = streamCount.withValue({
+    val ident: ULong = streamCount.withAndSetValue({
         it + 1uL
     })
 
@@ -55,10 +65,12 @@ open class FStream<T> {
         return false
     }
 
+    // a new stream with a new inner
     constructor(memoryMode: MemoryMode) {
         inner = Locker(value = Inner(memoryMode))
     }
 
+    // a new stream with a cloned inner
     constructor(inner: Locker<Inner<T>>) {
         this.inner = inner
     }
@@ -67,9 +79,8 @@ open class FStream<T> {
     fun subscribe(listener: (T) -> Unit): Subscription<T> =
         inner.withValue() {
             val strong = it.subscribeStrong(peg = parent) {
-                val t = it
-                if (t != null) {
-                    listener(t)
+                if (it != null) {
+                    listener(it)
                 }
             }
             Subscription(strong)
@@ -101,9 +112,7 @@ open class FStream<T> {
     // Collect values of this stream into an array of values.
     fun collect(): Collector<T> {
         val c = Collector<T>()
-        c.parent = subscribeInner() { t ->
-            inner.withValue() { it.update(t) }
-        }
+        c.parent = subscribeInner(listener = c.update)
         return c
     }
 
@@ -260,7 +269,6 @@ open class FStream<T> {
     }
 
     // Internal function that starts an imitator.
-
     fun attachImitator(imitator: FImitator<T>): Subscription<T> {
         val inner = imitator.inner
         return inner.withValue() {
@@ -275,7 +283,9 @@ open class FStream<T> {
                     }
                 }
                 imitations.withValue() {
-                    it.get()?.add(todo)
+                    // it is a ThreadLocal whose value is a list of Imitations
+                    // add this todo to the list
+                    it.get().add(todo)
                 }
             }
             Subscription(strong)
@@ -336,8 +346,8 @@ open class FStream<T> {
         val inner = stream.inner
         // We subscribe to self and back comes the "peg" that goes into the new stream.
         stream.parent = subscribeInner() {
-            val // If it is a value, transform it otherwise end.
-                    t = it
+            // If it is a value, transform it otherwise end.
+            val t = it
             if (t != null) {
                 inner.withValue() { it.update(f(t)) }
             } else {
@@ -472,8 +482,9 @@ open class FStream<T> {
         val waitFor: Locker<Semaphore?> = Locker(value = Semaphore(0, true))
         val peg = remember().subscribeInner() {
             if (it == null) {
-                waitFor.withValue() {
+                waitFor.withAndSetValue() {
                     it?.release()
+                    null
                 }
             }
         }
@@ -482,30 +493,7 @@ open class FStream<T> {
         w?.acquire()
         return true
     }
-}
 
-// A new stream with a new inner
-// A new stream with a cloned inner
-// TODO: Not sure this function makes much sense since it injects the
-// value _straight away_. It encourages dependening on that behavior of
-// making values flow already at initialisation.
-//    // Create a new stream that emits one single value to any subscriber.
-//    //
-//    // The stream is in memory mode.
-//    public static func of(value: T) -> FMemoryStream<T> {
-//        let stream = FMemoryStream<T>(memoryMode: MemoryMode.AfterEnd)
-//        stream.inner.withValue() {
-//            $0.update(value)
-//            $0.update(nil)
-//        }
-//        return stream
-//    }
-// Create a stream that never emits anything. It stays inerts forever.
-@kotlin.ExperimentalUnsignedTypes
-fun <T> never(): FStream<T> {
-    val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
-    stream.inner.withValue() { it.update(null) }
-    return stream
 }
 
 // Dedupe the stream by the value in the stream itself
@@ -672,12 +660,11 @@ class Collector<T> {
         inner = Locker(value = CollectorInner<T>())
     }
 
-    fun update(t: T?) {
+    fun update(t: T? = null) {
         inner.withValue() {
             if (it.alive) {
-                val t2 = t
-                if (t2 != null) {
-                    it.values.add(t2)
+                if (t != null) {
+                    it.values.add(t)
                 } else {
                     it.waitFor.release()
                     it.alive = false
@@ -686,12 +673,19 @@ class Collector<T> {
         }
     }
 
+    val update: (T?) -> Unit = { update(null) }
+
     // Stall the thread and wait for the stream this collector works off to end.
     fun wait(): MutableList<T> {
-        var waitFor = inner.withValue() { if (it.alive) it.waitFor else null }
-        val waitFor2 = waitFor
-        if (waitFor2 != null) {
-            waitFor2.acquire()
+        var waitFor = inner.withValue() {
+            if (it.alive) {
+                it.waitFor
+            } else {
+                null
+            }
+        }
+        if (waitFor != null) {
+            waitFor.acquire()
         }
         return take()
     }
@@ -711,7 +705,7 @@ private data class CollectorInner<T>(
     var alive: Boolean = true,
     var values: MutableList<T> = mutableListOf(),
     val waitFor: Semaphore = Semaphore(0, true)
-) {}
+)
 
 // Subscriptions are receipts to the `FStream.subscribe()` operation. They
 // can be used to unsubscribe.
@@ -805,13 +799,20 @@ typealias Imitation = () -> Unit
 @kotlin.ExperimentalUnsignedTypes
 class Locker<L>(value: L) {
     private val semaphore = Semaphore(1, true)
-    private val value = value;
+    private var value = value;
     // Access the locked in value
     fun <X> withValue(closure: (L) -> X): X {
         semaphore.acquire()
-        val x = closure(this.value)
+        val x = closure(value)
         semaphore.release()
         return x
+    }
+    // apply a closure on the value and set the value to the result
+    fun withAndSetValue(closure: (L) -> L): L {
+        semaphore.acquire()
+        value = closure(value)
+        semaphore.release()
+        return value
     }
 }
 
@@ -868,7 +869,7 @@ class Inner<T>(memoryMode: MemoryMode) {
             return Strong(value = null)
         }
         val l = Listener(closure = onvalue)
-        l.extra = peg as Any
+        l.extra = peg as Any?
         val s = Strong(value = l)
         if (memoryMode.isMemory() && lastValue != null) {
             onvalue(lastValue)
@@ -892,6 +893,9 @@ class Inner<T>(memoryMode: MemoryMode) {
             imitations.withValue() {
                 todo = it.get() // save the list
                 it.set(mutableListOf())// clear the list
+            }
+            if (todo == null) {
+                break
             }
             if (todo!!.isEmpty()) {
                 // nothing to do
@@ -960,8 +964,7 @@ class Listener<T>(closure: (T?) -> Unit) {
 @kotlin.ExperimentalUnsignedTypes
 data class Peg(
     var parent: Any? = null,
-    var l: Any? = null
-) {
+    var l: Any? = null ) {
 
     constructor(l: Any) : this() {
         this.l = l

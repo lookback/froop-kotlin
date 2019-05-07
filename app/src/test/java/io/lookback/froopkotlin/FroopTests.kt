@@ -522,7 +522,7 @@ class FroopTests {
 //        val sinkInt = FSink<Int>()
 //        val sinkUpdate = FSink<FooUpdate>()
 //
-//        val foo = sinkUpdate.stream().fold(Foo(stream = never(), other = 0.0f))
+//        val foo = sinkUpdate.stream().fold(Foo(stream = FStream.Companion.never<Int>(), other = 0.0f))
 //        { prev, upd ->
 //            var next = prev
 //            when (upd) {
