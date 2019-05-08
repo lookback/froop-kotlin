@@ -391,8 +391,8 @@ open class FStream<T> {
     // Useful when wanting to filter/gate one stream on a value from some other stream.
     //
     // No value will be emitted unless `other` has produced at least one value.
-    fun <U> sampleCombine(other: FStream<U>): FStream<T> {
-        val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
+    fun <U> sampleCombine(other: FStream<U>): FStream<Pair<T,U>> {
+        val stream = FStream<Pair<T,U>>(memoryMode = MemoryMode.NoMemory)
         val inner = stream.inner
         // keep track of last U. if this stream ends, we just hold on to the
         // last U forever.
@@ -411,8 +411,7 @@ open class FStream<T> {
                 val u = lastU
                 if (u != null) {
                     inner.withValue() {
-                        it.update(t)
-                        it.update(u as T?)
+                        it.update(Pair(t,u))
                     }
                 }
             } else {
@@ -660,7 +659,7 @@ class Collector<T> {
         inner = Locker(value = CollectorInner<T>())
     }
 
-    fun update(t: T? = null) {
+    private fun update2(t: T?) {
         inner.withValue() {
             if (it.alive) {
                 if (t != null) {
@@ -673,7 +672,7 @@ class Collector<T> {
         }
     }
 
-    val update: (T?) -> Unit = { update(null) }
+    val update: (T?) -> Unit = { update2(it) }
 
     // Stall the thread and wait for the stream this collector works off to end.
     fun wait(): MutableList<T> {
@@ -692,12 +691,13 @@ class Collector<T> {
 
     // Take whatever values are in the collector without waiting for
     // the stream to end.
-    fun take(): MutableList<T> =
-        inner.withValue() {
+    fun take(): MutableList<T> {
+        return inner.withValue() {
             val v = it.values
             it.values = mutableListOf()
             v
         }
+    }
 }
 
 @kotlin.ExperimentalUnsignedTypes
@@ -791,8 +791,15 @@ class FImitator<T> {
 // invocation finishes. This is how we make sync imitations happen.
 //
 // Amazingly ThreadLocal is not thread safe, so we are forced to wrap it in a locker.
+internal class ImitationThreadLocal : ThreadLocal<MutableList<Imitation>> {
+    constructor()
+
+    override fun initialValue(): MutableList<Imitation>? {
+        return mutableListOf<Imitation>()
+    }
+}
 @kotlin.ExperimentalUnsignedTypes
-private val imitations: Locker<ThreadLocal<MutableList<Imitation>>> = Locker(value = ThreadLocal())
+private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationThreadLocal())
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
@@ -886,7 +893,7 @@ class Inner<T>(memoryMode: MemoryMode) {
         // sync with the same update. keep doing this until there are no more
         // imitators added.
         while (true) {
-            var todo: MutableList<Imitation>? = mutableListOf()
+            var todo: MutableList<Imitation> = mutableListOf()
             // this is inside a lock, we must get the value out and release
             // the lock since the imitator run might need the lock to add
             // more imitators (i.e. avoid deadlock).
@@ -894,15 +901,12 @@ class Inner<T>(memoryMode: MemoryMode) {
                 todo = it.get() // save the list
                 it.set(mutableListOf())// clear the list
             }
-            if (todo == null) {
-                break
-            }
-            if (todo!!.isEmpty()) {
+            if (todo.isEmpty()) {
                 // nothing to do
                 break
             } else {
                 // run all imitators
-                todo?.forEach() { it() }
+                todo.forEach() { it() }
             }
         }
     }
@@ -1014,13 +1018,20 @@ class Strong<W : Any> : Get {
 @Suppress("UNUSED_PARAMETER")
 fun <T> ignore(x: T) {}
 
+// Need tuples (Kotlin only offers Pairs and Triples
+data class NTuple2(val a: Any?, val b: Any?)
+data class NTuple3(val a: Any?, val b: Any?, val c: Any?)
+data class NTuple4(val a: Any?, val b: Any?, val c: Any?, val d: Any?)
+data class NTuple5(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: Any?)
+data class NTuple6(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: Any?, val f: Any?)
+
 // MARK: ABANDON ALL HOPE YE WHO ENTERS HERE!
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<Any> {
-    val stream = FStream<Any>(memoryMode = MemoryMode.NoMemory)
+fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2> {
+    val stream = FStream<NTuple2>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1030,8 +1041,7 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<Any> {
             if (aa != null) {
                 val bb = vb
                 if (bb != null) {
-                    it.update(aa)
-                    it.update(bb)
+                    it.update(NTuple2(aa,bb))
                 }
             }
         }
@@ -1068,8 +1078,8 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<Any> {
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<Any> {
-    val stream = FStream<Any>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3> {
+    val stream = FStream<NTuple3>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1082,9 +1092,7 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<Any>
                 if (bb != null) {
                     val cc = vc
                     if (cc != null) {
-                        it.update(aa)
-                        it.update(bb)
-                        it.update(cc)
+                        it.update(NTuple3(aa,bb,cc))
                     }
                 }
             }
@@ -1133,8 +1141,8 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<Any>
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<Any> {
-    val stream = FStream<Any>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4> {
+    val stream = FStream<NTuple4>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1150,10 +1158,7 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
                     if (cc != null) {
                         val dd = vd
                         if (dd != null) {
-                            it.update(aa)
-                            it.update(bb)
-                            it.update(cc)
-                            it.update(dd)
+                            it.update(NTuple4(aa,bb,cc,dd))
                         }
                     }
                 }
@@ -1214,8 +1219,8 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<Any> {
-    val stream = FStream<Any>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5> {
+    val stream = FStream<NTuple5>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1234,11 +1239,7 @@ fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStr
                         if (dd != null) {
                             val ee = ve
                             if (ee != null) {
-                                it.update(aa)
-                                it.update(bb)
-                                it.update(cc)
-                                it.update(dd)
-                                it.update(ee)
+                                it.update(NTuple5(aa,bb,cc,dd,ee))
                             }
                         }
                     }

@@ -41,7 +41,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(0, 4))
+        assertEquals(mutableListOf(0, 4), collect.wait())
     }
 
     @Test
@@ -54,7 +54,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(0, 1, 2))
+        assertEquals(mutableListOf(0, 1, 2), collect.wait())
     }
 
     //    fun testOf() {
@@ -93,7 +93,7 @@ class FroopTests {
         sub.unsubscribe()
         sink.update(2)
 
-        assertEquals(r, mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), r)
     }
 
     @Test
@@ -107,13 +107,13 @@ class FroopTests {
             sink.stream()
                 .map() { it * 2 } // there's a risk this intermediary drops
                 .subscribe() {  // this subscribe adds a strong listener, chain should live
-                    waitFor.tryAcquire()
+                    waitFor.release()
                 }
 
             return sink
         }
 
-        val waitFor = Semaphore(1)
+        val waitFor = Semaphore(0)
         val sink = makeLinked(waitFor)
 
         sink.update(1)
@@ -136,7 +136,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(r, mutableListOf(42))
+        assertEquals(mutableListOf(42), r)
     }
 
     @Test
@@ -151,7 +151,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(0, 2))
+        assertEquals(mutableListOf(0, 2), collect.wait())
     }
 
     @Test
@@ -166,7 +166,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf("0", "2"))
+        assertEquals(mutableListOf("0", "2"), collect.wait())
     }
 
     @Test
@@ -181,12 +181,12 @@ class FroopTests {
 
         sink.update(0)
         sink.update(1)
-        assertEquals(collect.take(), mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), collect.take())
 
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(2))
+        assertEquals(mutableListOf(2), collect.wait())
     }
 
     @Test
@@ -215,7 +215,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.take(), mutableListOf(2, 42))
+        assertEquals(mutableListOf(2, 42), collect.take())
     }
 
     @Test
@@ -233,29 +233,31 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(0, 1, 2))
+        assertEquals(mutableListOf(0, 1, 2), collect.wait())
     }
 
-//    @Test
-//    fun testDedupeBy() {
-//        class Foo(i: Int) { }
-//
-//        val sink = FSink<Foo>()
-//
-//        val deduped = sink.stream().dedupeBy() { it.i }
-//        val collect = deduped
-//                .map { it.i }
-//            .collect()
-//
-//        sink.update(Foo(0))
-//        sink.update(Foo(0))
-//        sink.update(Foo(1))
-//        sink.update(Foo(2))
-//        sink.update(Foo(2))
-//        sink.end()
-//
-//        assertEquals(collect.wait(), mutableListOf(0, 1, 2))
-//    }
+    @Test
+    fun testDedupeBy() {
+        class Foo(i: Int) {
+            val i = i
+        }
+
+        val sink = FSink<Foo>()
+
+        val deduped = sink.stream().dedupeBy() { it.i }
+        val collect = deduped
+                .map { it.i }
+            .collect()
+
+        sink.update(Foo(0))
+        sink.update(Foo(0))
+        sink.update(Foo(1))
+        sink.update(Foo(2))
+        sink.update(Foo(2))
+        sink.end()
+
+        assertEquals(mutableListOf(0, 1, 2), collect.wait())
+    }
 
     @Test
     fun testDrop() {
@@ -271,7 +273,7 @@ class FroopTests {
         sink.update(4)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(2, 3, 4))
+        assertEquals(mutableListOf(2, 3, 4), collect.wait())
     }
 
     @Test
@@ -288,7 +290,7 @@ class FroopTests {
         sink.update(6)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(4, 5, 6))
+        assertEquals(mutableListOf(4, 5, 6), collect.wait())
     }
 
     @Test
@@ -305,7 +307,7 @@ class FroopTests {
         sink2.end() // this ends "ended"
         sink1.update(2) // never seen
 
-        assertEquals(collect.wait(), mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), collect.wait())
     }
 
     @Test
@@ -319,7 +321,7 @@ class FroopTests {
         sink.update(1)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf("|", "| + 0", "| + 0 + 1"))
+        assertEquals(mutableListOf("|", "| + 0", "| + 0 + 1"), collect.wait())
     }
 
     @Test
@@ -334,7 +336,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(2))
+        assertEquals(mutableListOf(2), collect.wait())
     }
 
     @Test
@@ -349,7 +351,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf("0", "1", "2"))
+        assertEquals(mutableListOf("0", "1", "2"), collect.wait())
     }
 
     @Test
@@ -364,7 +366,7 @@ class FroopTests {
         sink.update(2)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf("42", "42", "42"))
+        assertEquals(mutableListOf("42", "42", "42"), collect.wait())
     }
 
     @Test
@@ -409,8 +411,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it}, mutableListOf(1, 2, 3))
-//        assertEquals(r.map() {it is String}, mutableListOf("foo", "bar", "bar"))
+        assertEquals(r.map() {it.first}, mutableListOf(1, 2, 3))
+        assertEquals(r.map() {it.second}, mutableListOf("foo", "bar", "bar"))
     }
 
     @Test
@@ -423,7 +425,7 @@ class FroopTests {
         sink.update(1)
         sink.end()
 
-        assertEquals(collect.wait(), mutableListOf(42, 0, 1))
+        assertEquals(mutableListOf(42, 0, 1), collect.wait())
     }
 
     @Test
@@ -437,7 +439,7 @@ class FroopTests {
         sink.update(1)
         sink.update(2)
 
-        assertEquals(collect.wait(), mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), collect.wait())
     }
 
     @Test
@@ -450,7 +452,7 @@ class FroopTests {
         sink.update(0)
         sink.update(1)
 
-        assertEquals(collect.wait(), mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), collect.wait())
     }
 
     @Test
@@ -464,7 +466,7 @@ class FroopTests {
         sink.update(1)
         sink.update(-2)
 
-        assertEquals(collect.wait(), mutableListOf(0, 1))
+        assertEquals(mutableListOf(0, 1), collect.wait())
     }
 
     @Test
@@ -503,11 +505,10 @@ class FroopTests {
         sink1.update(42) // missed
         sink1.end() // does not end outer
         sink2.update(3)
-        sink.end() // doesn't end outer, because sink2 is active
+        sink.end() // does end outer
         sink2.update(4)
-        sink2.end()
 
-        assertEquals(collect.wait(), mutableListOf(1, 2, 3, 4))
+        assertEquals(mutableListOf(1, 2, 3), collect.wait())
     }
 
 //    @Test
@@ -573,7 +574,7 @@ class FroopTests {
         sink.end() // does end outer
         sink2.update(4) // missed
 
-        assertEquals(collect.wait(), mutableListOf(1, 2, 42, 3))
+        assertEquals(mutableListOf(1, 2, 42, 3), collect.wait())
     }
 
     @Test
@@ -592,7 +593,7 @@ class FroopTests {
         sink2.update(11)
         sink2.end()
 
-        assertEquals(collect.wait(), mutableListOf(0,10,1,11))
+        assertEquals(mutableListOf(0,10,1,11), collect.wait())
     }
 
     @Test
@@ -614,8 +615,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-//        assertEquals(r.map() {it.0}, mutableListOf(0, 1, 1))
-//        assertEquals(r.map() {it.1}, mutableListOf("0", "0", "1"))
+        assertEquals(r.map() {it.a}, mutableListOf(0, 1, 1))
+        assertEquals(r.map() {it.b}, mutableListOf("0", "0", "1"))
     }
 
     @Test
@@ -636,8 +637,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-//        assertEquals(r.map() {it.0}, mutableListOf(null, null))
-//        assertEquals(r.map() {it.1}, mutableListOf(null, "hi"))
+        assertEquals(r.map() {it.a}, mutableListOf<Any?>())
+        assertEquals(r.map() {it.b}, mutableListOf<Any?>(null, "hi"))
     }
 
     @Test
@@ -657,8 +658,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-//        assertEquals(r.map() {it.0}, mutableListOf(1))
-//        assertEquals(r.map() {it.1}, mutableListOf("1"))
+        assertEquals(r.map() {it.a}, mutableListOf(1))
+        assertEquals(r.map() {it.b}, mutableListOf("1"))
     }
 
     @Test
@@ -678,11 +679,11 @@ class FroopTests {
         sink3.update(3)
         sink3.end()
 
-        val r = mutableListOf(collect.wait())
+        val r = collect.wait()
 
-//        assertEquals(r.map() {it.0}, mutableListOf(1))
-//        assertEquals(r.map() {it.1}, mutableListOf(2))
-//        assertEquals(r.map() {it.2}, mutableListOf(3))
+        assertEquals(r.map() {it.a}, mutableListOf(1))
+        assertEquals(r.map() {it.b}, mutableListOf(2))
+        assertEquals(r.map() {it.c}, mutableListOf(3))
     }
 
 }
