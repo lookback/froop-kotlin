@@ -22,7 +22,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : Pair<FSink<Int>, Collector<Int>> {
+        fun makeLinked() : NTuple2 {
             val sink = FSink<Int>()
 
             val collect = sink.stream()
@@ -30,18 +30,18 @@ class FroopTests {
                 .map() { it * 2 }
                 .collect()
 
-            return Pair(sink, collect)
+            return NTuple2(sink, collect)
         }
 
 
-        val (sink, collect) = makeLinked()
+        val linked = makeLinked()
 
-        sink.update(0)
-        sink.update(1)
-        sink.update(2)
-        sink.end()
+        ((linked.a) as FSink<Int>).update(0)
+        ((linked.a) as FSink<Int>).update(1)
+        ((linked.a) as FSink<Int>).update(2)
+        ((linked.a) as FSink<Int>).end()
 
-        assertEquals(mutableListOf(0, 4), collect.wait())
+        assertEquals(mutableListOf(0, 4), ((linked.b) as Collector<Int>).wait())
     }
 
     @Test
@@ -194,7 +194,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : Pair<FSink<Int>, Collector<Int>> {
+        fun makeLinked() : NTuple2 {
             val imitator = FImitator<Int>()
             val sink = FSink<Int>()
 
@@ -206,16 +206,16 @@ class FroopTests {
 
             val collect = mer.collect()
 
-            return Pair(sink, collect)
+            return NTuple2(sink, collect)
         }
 
 
-        val (sink, collect) = makeLinked()
+        val linked = makeLinked()
 
-        sink.update(2)
-        sink.end()
+        ((linked.a) as FSink<Int>).update(2)
+        ((linked.a) as FSink<Int>).end()
 
-        assertEquals(mutableListOf(2, 42), collect.take())
+        assertEquals(mutableListOf(2, 42), ((linked.b) as Collector<Int>).take())
     }
 
     @Test
@@ -411,8 +411,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it.first}, mutableListOf(1, 2, 3))
-        assertEquals(r.map() {it.second}, mutableListOf("foo", "bar", "bar"))
+        assertEquals(r.map() {it.a}, mutableListOf(1, 2, 3))
+        assertEquals(r.map() {it.b}, mutableListOf("foo", "bar", "bar"))
     }
 
     @Test

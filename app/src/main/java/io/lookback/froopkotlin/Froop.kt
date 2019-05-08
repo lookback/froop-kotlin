@@ -391,8 +391,8 @@ open class FStream<T> {
     // Useful when wanting to filter/gate one stream on a value from some other stream.
     //
     // No value will be emitted unless `other` has produced at least one value.
-    fun <U> sampleCombine(other: FStream<U>): FStream<Pair<T,U>> {
-        val stream = FStream<Pair<T,U>>(memoryMode = MemoryMode.NoMemory)
+    fun <U> sampleCombine(other: FStream<U>): FStream<NTuple2> {
+        val stream = FStream<NTuple2>(memoryMode = MemoryMode.NoMemory)
         val inner = stream.inner
         // keep track of last U. if this stream ends, we just hold on to the
         // last U forever.
@@ -411,7 +411,7 @@ open class FStream<T> {
                 val u = lastU
                 if (u != null) {
                     inner.withValue() {
-                        it.update(Pair(t,u))
+                        it.update(NTuple2(t,u))
                     }
                 }
             } else {
