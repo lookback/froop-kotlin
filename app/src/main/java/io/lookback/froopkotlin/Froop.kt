@@ -518,7 +518,8 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
         val nestedStream = it
         if (nestedStream != null) {
             if (currentIdent != nestedStream.ident) {
-                // simply overwriting the old value will release the ARC
+                // destroy the old peg
+                peg?.destroy()
                 peg = nestedStream.subscribeInner {
                     val t = it
                     if (t != null) {
@@ -563,6 +564,7 @@ fun <T> flattenConcurrently(nested: FStream<FStream<T>>): FStream<T> {
                     inner.withValue { it.update(t) }
                 } else {
                     // the inner stream ending does not end the result stream
+                    peg?.destroy()
                     peg = null
                     currentIdents.withValue { it.removeAll { it == ident } }
                 }
@@ -936,12 +938,20 @@ class Inner<T>(private var memoryMode: MemoryMode) {
 // A listener is just a closure here wrapped in a class so
 // we can in turn put it inside a `Weak` or `Strong`.
 @kotlin.ExperimentalUnsignedTypes
-class Listener<T>(val closure: (T?) -> Unit) {
+class Listener<T>(var closure: (T?) -> Unit) {
     // if we need to hold a reference to something more :)
     var extra: Any? = null
+    var valid = true // hack to allow disconnecting a listener
 
     fun apply(t: T?) {
-        closure(t)
+        if (valid) {
+            closure(t)
+        }
+    }
+
+    fun destroy() {
+        extra = null
+        valid = false
     }
 }
 
@@ -960,6 +970,20 @@ data class Peg(
 
     constructor(pegs: MutableList<Peg>) : this() {
         l = pegs
+    }
+
+    fun destroy() {
+        if (l != null) {
+            if (l is MutableList<*>) {
+                (l as MutableList<*>).forEach() {
+                    if (it is Peg) {
+                        it.destroy()
+                    }
+                }
+            } else if (l is Listener<*>) {
+                (l as Listener<*>).destroy()
+            }
+        }
     }
 }
 
