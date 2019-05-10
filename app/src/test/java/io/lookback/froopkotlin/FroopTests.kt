@@ -4,6 +4,7 @@ import org.junit.Test
 
 import org.junit.Assert.*
 import java.util.concurrent.Semaphore
+import kotlin.concurrent.thread
 
 //
 //  froopTests.kt
@@ -49,10 +50,13 @@ class FroopTests {
         val sink = FSink<Int>()
         val collect = sink.stream().collect();
 
-        sink.update(0)
-        sink.update(1)
-        sink.update(2)
-        sink.end()
+        // do on another thread
+        thread(start = true) {
+            sink.update(0)
+            sink.update(1)
+            sink.update(2)
+            sink.end()
+        }
 
         assertEquals(mutableListOf(0, 1, 2), collect.wait())
     }
@@ -474,7 +478,10 @@ class FroopTests {
         val sink = FSink<Int>()
         sink.update(0)
 
-        sink.end()
+        // run the end on another thread!
+        thread(start = true) {
+            sink.end()
+        }
 
         sink.stream().wait()
     }
@@ -513,30 +520,26 @@ class FroopTests {
 
 //    @Test
 //    fun testFlattenSame() {
-//        data class Foo(var stream: FStream<Int>, var other: Float { }
+//        data class Foo(var stream: FStream<Int>, var other: Float)
 //
-//        enum class FooUpdate {
-//            stream : FStream<Int>,
-//            other : Float
-//        }
+//        data class FooUpdate(val isStream: Boolean, val foo: Foo)
 //
 //        val sinkInt = FSink<Int>()
 //        val sinkUpdate = FSink<FooUpdate>()
 //
-//        val foo = sinkUpdate.stream().fold(Foo(stream = FStream.Companion.never<Int>(), other = 0.0f))
+//        val fooStream = sinkUpdate.stream().fold(Foo(stream = FStream.never(), other = 0.0f))
 //        { prev, upd ->
-//            var next = prev
-//            when (upd) {
-//                FooUpdate.stream(val stream) ->
-//                    next.stream = stream
-//                FooUpdate.other(val other) ->
-//                    next.other = other
+//            val next = prev
+//            if (upd.isStream) {
+//                next.stream = upd.foo.stream
+//            } else {
+//                next.other = upd.foo.other
 //            }
-//            return next
+//            next
 //        }
 //
-//        val intStream = flatten(nested = foo.map() { it.stream.remember() })
-//        sinkUpdate.update(intStream.stream(sinkInt.stream()))
+//        val intStream = flatten(nested = fooStream.map { it.stream.remember() } as FStream<FStream<Int>>)
+//        sinkUpdate.update(.stream(sinkInt.stream())
 //        val coll = intStream.collect()
 //
 //        sinkInt.update(42)
