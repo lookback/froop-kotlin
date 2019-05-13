@@ -514,8 +514,9 @@ class FroopTests {
         sink2.update(3)
         sink.end() // does end outer
         sink2.update(4)
+        sink2.end()
 
-        assertEquals(mutableListOf(1, 2, 3), collect.wait())
+        assertEquals(mutableListOf(1, 2, 3, 4), collect.wait())
     }
 
 //    @Test

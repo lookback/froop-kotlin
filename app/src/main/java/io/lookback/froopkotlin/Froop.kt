@@ -513,6 +513,7 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
     val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var currentIdent: ULong = 0uL
+    var outerEnded = false
     var peg: Peg? = null
     ignore(peg)
     stream.parent = nested.subscribeInner {
@@ -527,16 +528,21 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
                         inner.withValue { it.update(t) }
                     } else {
                         peg = null
+                        currentIdent = 0uL
                         // the inner stream ending ends if the outer is ended
+                        if (outerEnded) {
+                            inner.withValue { it.update(null) }
+                        }
                     }
                 }
                 currentIdent = nestedStream.ident
             }
         } else {
-            peg = null
-            currentIdent = 0uL
-            // the outer stream ending does end the result stream
-            inner.withValue { it.update(null) }
+            outerEnded = true
+            // the outer stream ending ends if inner is already ended, or not started
+            if (peg == null) {
+                inner.withValue { it.update(null) }
+            }
         }
     }
     return stream
@@ -717,7 +723,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 
     private var strong: Strong<Listener<T>>? = strong
     // Set to true to automatically unsubscribe when the subscription deinits
-    var unsubscribeOnDeinit: Boolean = true
+    var doUnsubscribeOnDeinit: Boolean = true
 
     // Unsubscribe from further updates.
     fun unsubscribe() {
@@ -725,8 +731,13 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
         strong = null
     }
 
+    fun unsubscribeOnDeinit() : Subscription<T> {
+        doUnsubscribeOnDeinit = true
+        return this
+    }
+
     override fun close() {
-        if (unsubscribeOnDeinit) {
+        if (doUnsubscribeOnDeinit) {
             unsubscribe()
         }
     }
