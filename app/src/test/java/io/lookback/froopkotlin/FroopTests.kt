@@ -45,6 +45,29 @@ class FroopTests {
     }
 
     @Test
+    fun testUnsubOutOfScope() {
+        val sink = FSink<Int>()
+        val values = mutableListOf<Int>()
+
+        fun scoped(stream: FStream<Int>) {
+            var x = stream.map() {
+                values.add(it)
+            }
+            // because x "falls out of scope here", the Peg would
+            // in a swift froop unsubscribe the .map() from stream.
+        }
+
+        val stream = sink.stream()
+
+        scoped(stream)
+
+        sink.update(42)
+        sink.end()
+
+        assertEquals(mutableListOf<Int>(), values)
+    }
+
+    @Test
     fun testFSink() {
         val sink = FSink<Int>()
         val collect = sink.stream().collect();
