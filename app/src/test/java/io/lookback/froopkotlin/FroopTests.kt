@@ -514,48 +514,50 @@ class FroopTests {
         sink2.update(3)
         sink.end() // does end outer
         sink2.update(4)
+        sink2.end()
 
-        assertEquals(mutableListOf(1, 2, 3), collect.wait())
+        assertEquals(mutableListOf(1, 2, 3, 4), collect.wait())
     }
 
-//    @Test
-//    fun testFlattenSame() {
-//        data class Foo(var stream: FStream<Int>, var other: Float)
-//
-//        data class FooUpdate(val isStream: Boolean, val foo: Foo)
-//
-//        val sinkInt = FSink<Int>()
-//        val sinkUpdate = FSink<FooUpdate>()
-//
-//        val fooStream = sinkUpdate.stream().fold(Foo(stream = FStream.never(), other = 0.0f))
-//        { prev, upd ->
-//            val next = prev
-//            if (upd.isStream) {
-//                next.stream = upd.foo.stream
-//            } else {
-//                next.other = upd.foo.other
-//            }
-//            next
-//        }
-//
-//        val intStream = flatten(nested = fooStream.map { it.stream.remember() } as FStream<FStream<Int>>)
-//        sinkUpdate.update(.stream(sinkInt.stream())
-//        val coll = intStream.collect()
-//
-//        sinkInt.update(42)
-//
-//        // what we don't want to see is [42, 42 ,42] repeated for each update of Foo
-//        sinkUpdate.update(intStream.other(1.0))
-//        sinkUpdate.update(intStream.other(2.0))
-//        sinkUpdate.update(intStream.other(3.0))
-//
-//        sinkInt.update(43)
-//
-//        sinkUpdate.end()
-//        sinkInt.end()
-//
-//        assertEquals(coll.wait(), mutableListOf(42, 43))
-//    }
+    @Test
+    fun testFlattenSame() {
+        data class Foo(var stream: FStream<Int>?, var other: Float?)
+
+        data class FooUpdate(val fooType: Boolean, val stream: FStream<Int>? = null, val other: Float? = null)
+
+        val sinkInt = FSink<Int>()
+        val sinkUpdate = FSink<FooUpdate>()
+
+        val fooStream = sinkUpdate.stream().fold(Foo(stream = FStream.never(), other = 0.0f))
+        { prev, upd ->
+            val next = prev
+            if (upd.fooType) {
+                next.stream = upd.stream
+            } else {
+                next.other = upd.other
+            }
+            next
+        }
+
+        val intStream = flatten(nested = fooStream.map { it.stream?.remember() } as FStream<FStream<Int>>)
+        sinkUpdate.update(FooUpdate(true, stream = sinkInt.stream()))
+        val collect = intStream.collect()
+
+        sinkInt.update(42)
+
+        // what we don't want to see is [42, 42 ,42] repeated for each update of Foo
+        sinkUpdate.update(FooUpdate(false, other = 1.0f))
+        sinkUpdate.update(FooUpdate(false, other = 2.0f))
+        sinkUpdate.update(FooUpdate(false, other = 3.0f))
+
+        sinkInt.update(43)
+
+        sinkUpdate.end()
+        sinkInt.end()
+
+        assertEquals(mutableListOf(42, 43), collect.wait())
+
+    }
 
     @Test
     fun testFlattenConcurrently() {
@@ -618,8 +620,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it.a}, mutableListOf(0, 1, 1))
-        assertEquals(r.map() {it.b}, mutableListOf("0", "0", "1"))
+        assertEquals(mutableListOf(0, 1, 1), r.map() {it.a})
+        assertEquals(mutableListOf("0", "0", "1"), r.map() {it.b})
     }
 
     @Test
@@ -640,8 +642,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it.a}, mutableListOf<Any?>())
-        assertEquals(r.map() {it.b}, mutableListOf<Any?>(null, "hi"))
+        assertEquals(mutableListOf<Any?>(null, null), r.map() {it.a})
+        assertEquals(mutableListOf<Any?>(null, "hi"), r.map() {it.b})
     }
 
     @Test
@@ -661,8 +663,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it.a}, mutableListOf(1))
-        assertEquals(r.map() {it.b}, mutableListOf("1"))
+        assertEquals(mutableListOf(1), r.map() {it.a})
+        assertEquals(mutableListOf("1"), r.map() {it.b})
     }
 
     @Test
@@ -684,9 +686,9 @@ class FroopTests {
 
         val r = collect.wait()
 
-        assertEquals(r.map() {it.a}, mutableListOf(1))
-        assertEquals(r.map() {it.b}, mutableListOf(2))
-        assertEquals(r.map() {it.c}, mutableListOf(3))
+        assertEquals(mutableListOf(1), r.map() {it.a})
+        assertEquals(mutableListOf(2), r.map() {it.b})
+        assertEquals(mutableListOf(3), r.map() {it.c})
     }
 
 }

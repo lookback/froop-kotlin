@@ -30,15 +30,16 @@ var froopLog: (String, String) -> Unit = { label, message ->
 // For some detailed notes on how a combinator is structured for ARC and thread
 // safety, see the source code for the `.map()` function. All operations follow
 //  a similar pattern.
+
 @kotlin.ExperimentalUnsignedTypes
 open class FStream<T> {
 
     companion object {
-        @kotlin.ExperimentalUnsignedTypes
+        
         private var streamCount: Locker<ULong> = Locker(value = 0uL)
 
         // Create a stream that never emits anything. It stays inerts forever.
-        @kotlin.ExperimentalUnsignedTypes
+        
         fun <T> never(): FStream<T> {
             val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
             stream.inner.withValue { it.update(null) }
@@ -78,7 +79,7 @@ open class FStream<T> {
     // Subscribe to values from this stream.
     fun subscribe(listener: (T) -> Unit): Subscription<T> =
         inner.withValue {
-            val strong = it.subscribeStrong(peg = parent) {
+            val strong = it.subscribeStrong(peg = this.parent) {
                 if (it != null) {
                     listener(it)
                 }
@@ -89,7 +90,7 @@ open class FStream<T> {
     // Subscribe to the end of the stream
     fun subscribeEnd(listener: () -> Unit): Subscription<T> =
         inner.withValue {
-            val strong = it.subscribeStrong(peg = parent) {
+            val strong = it.subscribeStrong(peg = this.parent) {
                 if (it == null) {
                     listener()
                 }
@@ -101,11 +102,11 @@ open class FStream<T> {
     // a weak reference alive of a listener to the parent stream.
     fun subscribeInner(listener: (T?) -> Unit): Peg {
         // Peg for the new weak subscription.
-        val peg = inner.withValue { it.subscribeWeak(onvalue = listener) }
+        val peg = this.inner.withValue { it.subscribeWeak(onvalue = listener) }
         // This peg must also keep the parent stream alive.
         // This is for chained operators such as .map().filter().map()
         // where the intermediaries would be unsubscribed otherwise.
-        peg.parent = parent
+        peg.parent = this.parent
         return peg
     }
 
@@ -272,7 +273,7 @@ open class FStream<T> {
     fun attachImitator(imitator: FImitator<T>): Subscription<T> {
         val inner = imitator.inner
         return this.inner.withValue {
-            val strong = it.subscribeStrong(peg = parent) { t ->
+            val strong = it.subscribeStrong(peg = this.parent) { t ->
                 // an imitation is a "todo" closure that captures the value to be
                 // dispatched later into the imitator. the todo is added to a
                 // thread local and is called later, after the current evaluation
@@ -512,6 +513,7 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
     val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var currentIdent: ULong = 0uL
+    var outerEnded = false
     var peg: Peg? = null
     ignore(peg)
     stream.parent = nested.subscribeInner {
@@ -526,16 +528,21 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
                         inner.withValue { it.update(t) }
                     } else {
                         peg = null
+                        currentIdent = 0uL
                         // the inner stream ending ends if the outer is ended
+                        if (outerEnded) {
+                            inner.withValue { it.update(null) }
+                        }
                     }
                 }
                 currentIdent = nestedStream.ident
             }
         } else {
-            peg = null
-            currentIdent = 0uL
-            // the outer stream ending does end the result stream
-            inner.withValue { it.update(null) }
+            outerEnded = true
+            // the outer stream ending ends if inner is already ended, or not started
+            if (peg == null) {
+                inner.withValue { it.update(null) }
+            }
         }
     }
     return stream
@@ -632,16 +639,16 @@ class FSink<T> {
     // Get a stream from this sink. Can be used multiple times and each instance
     // will be backed by the same sink.
     fun stream(): FStream<T> =
-        FStream(inner = inner)
+        FStream(inner = this.inner)
 
     // Update a value into the sink and all connected streams.
     fun update(t: T) {
-        inner.withValue { it.updateAndImitate(t) }
+        this.inner.withValue { it.updateAndImitate(t) }
     }
 
     // End this sink. No more values can be sent after 
     fun end() {
-        inner.withValue { it.updateAndImitate(null) }
+        this.inner.withValue { it.updateAndImitate(null) }
     }
 }
 
@@ -668,7 +675,7 @@ class Collector<T> {
 
     // Stall the thread and wait for the stream this collector works off to end.
     fun wait(): MutableList<T> {
-        val waitFor = inner.withValue {
+        val waitFor = this.inner.withValue {
             if (it.alive) {
                 it.waitFor
             } else {
@@ -716,7 +723,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 
     private var strong: Strong<Listener<T>>? = strong
     // Set to true to automatically unsubscribe when the subscription deinits
-    var unsubscribeOnDeinit: Boolean = true
+    var doUnsubscribeOnDeinit: Boolean = true
 
     // Unsubscribe from further updates.
     fun unsubscribe() {
@@ -724,8 +731,13 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
         strong = null
     }
 
+    fun unsubscribeOnDeinit() : Subscription<T> {
+        doUnsubscribeOnDeinit = true
+        return this
+    }
+
     override fun close() {
-        if (unsubscribeOnDeinit) {
+        if (doUnsubscribeOnDeinit) {
             unsubscribe()
         }
     }
@@ -758,7 +770,7 @@ class FImitator<T> {
     // Get a stream from this imitator. Can be used multiple times and each instance
     // will be backed by the same imitator.
     fun stream(): FStream<T> =
-        FStream(inner = inner)
+        FStream(inner = this.inner)
 
     // Start imitating another stream. This can be called exactly once.
     // Repeated calls will `fatalError`.
@@ -783,6 +795,7 @@ internal class ImitationThreadLocal() : ThreadLocal<MutableList<Imitation>>() {
         return mutableListOf()
     }
 }
+
 @kotlin.ExperimentalUnsignedTypes
 private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationThreadLocal())
 typealias Imitation = () -> Unit
@@ -907,22 +920,42 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         // strong subscribers get the value first, only
         // keep listeners that haven't unsubscribed
         ss = (ss.filter {
-            val s = it.get() ?: return
-            s.apply(t = t)
-            true
+            val s = it.get()
+            if (s == null) {
+                false
+            } else {
+                s.apply(t = t)
+                true
+            }
         }) as MutableList<Strong<Listener<T>>>
         // weak subscribers second, only keep the
         // ones that are still there.
         ws = (ws.filter {
-            val w = it.get() ?: return
-            w.apply(t = t)
-            true
+            val w = it.get()
+            if (w == null) {
+                false
+            } else {
+                w.apply(t = t)
+                true
+            }
         }) as MutableList<Weak<Listener<T>>>
         // nil indicates the end of the stream
         if (t == null) {
             alive = false
             // release all listeners
+            ws.forEach {
+                var listener = it.get()
+                if (listener != null) {
+                    listener.destroy()
+                }
+            }
             ws = mutableListOf()
+            ss.forEach {
+                var listener = it.get()
+                if (listener != null) {
+                    listener.destroy()
+                }
+            }
             ss = mutableListOf()
             if (memoryMode != MemoryMode.AfterEnd) {
                 lastValue = null
@@ -993,9 +1026,8 @@ private interface Get {
 }
 
 // Weak reference to some object
-@kotlin.ExperimentalUnsignedTypes
 class Weak<W : Any>(value: W) : Get {
-    var value: WeakReference<W?>
+    private var value: WeakReference<W?>
 
     init {
         this.value = WeakReference(value)
@@ -1003,10 +1035,10 @@ class Weak<W : Any>(value: W) : Get {
 
     override fun get(): W? =
         value.get()
+
 }
 
 // Strong reference to some object
-@kotlin.ExperimentalUnsignedTypes
 class Strong<W : Any>(var value: W?) : Get {
 
     override fun get(): W? =
@@ -1052,28 +1084,28 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
     var count = 2
     val pegs: MutableList<Peg> = mutableListOf(
         a.subscribeInner {
-        val t = it
-        if (t != null) {
-            va = t
-            emit()
-        } else {
-            count -= 1
-            if (count == 0) {
-                inner.withValue { it.update(null) }
+            val t = it
+            if (t != null) {
+                va = t
+                emit()
+            } else {
+                count -= 1
+                if (count == 0) {
+                    inner.withValue { it.update(null) }
+                }
             }
-        }
-    }, b.subscribeInner {
-        val t = it
-        if (t != null) {
-            vb = t
-            emit()
-        } else {
-            count -= 1
-            if (count == 0) {
-                inner.withValue { it.update(null) }
+        }, b.subscribeInner {
+            val t = it
+            if (t != null) {
+                vb = t
+                emit()
+            } else {
+                count -= 1
+                if (count == 0) {
+                    inner.withValue { it.update(null) }
+                }
             }
-        }
-    })
+        })
     stream.parent = Peg(pegs = pegs)
     return stream
 }
