@@ -31,12 +31,12 @@ var froopLog: (String, String) -> Unit = { label, message ->
 // safety, see the source code for the `.map()` function. All operations follow
 //  a similar pattern.
 
-@kotlin.ExperimentalUnsignedTypes
+
 open class FStream<T> {
 
     companion object {
         
-        private var streamCount: Locker<ULong> = Locker(value = 0uL)
+        private var streamCount: Locker<Long> = Locker(value = 0)
 
         // Create a stream that never emits anything. It stays inerts forever.
         
@@ -50,8 +50,8 @@ open class FStream<T> {
     val inner: Locker<Inner<T>>
     var parent: Peg? = null
 
-    val ident: ULong = streamCount.withAndSetValue({
-        it + 1uL
+    val ident: Long = streamCount.withAndSetValue({
+        it + 1
     })
 
     override operator fun equals(other: Any?): Boolean {
@@ -147,13 +147,13 @@ open class FStream<T> {
 
     // Drop a fixed number of initial values, then start emitting.
 
-    fun drop(amount: ULong): FStream<T> {
-        var todo = amount + 1uL
+    fun drop(amount: Long): FStream<T> {
+        var todo = amount + 1
         return dropWhile { _ ->
-            if (todo > 0uL) {
-                todo -= 1uL
+            if (todo > 0) {
+                todo -= 1
             }
-            todo > 0uL
+            todo > 0
         }
     }
 
@@ -440,18 +440,18 @@ open class FStream<T> {
 
     // Take a fixed amount of elements, then end.
 
-    fun take(amount: UInt): FStream<T> {
-        var todo = amount + 1u
+    fun take(amount: Int): FStream<T> {
+        var todo = amount + 1
         val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
         val inner = stream.inner
         stream.parent = subscribeInner { t ->
-            if (todo > 0u) {
-                todo -= 1u
+            if (todo > 0) {
+                todo -= 1
             }
-            if (todo > 0u) {
+            if (todo > 0) {
                 inner.withValue { it.update(t) }
             }
-            if (todo == 1u) {
+            if (todo == 1) {
                 inner.withValue { it.update(null) }
             }
         }
@@ -498,7 +498,7 @@ open class FStream<T> {
 }
 
 // Dedupe the stream by the value in the stream itself
-@kotlin.ExperimentalUnsignedTypes
+
 fun <T> FStream<T>.dedupe(): FStream<T> {
     return dedupeBy({ t: T -> t })
 }
@@ -508,11 +508,11 @@ fun <T> FStream<T>.dedupe(): FStream<T> {
 // the latest stream.
 //
 // Swift doesn't do recursive types, so we can't make an extension for
-@kotlin.ExperimentalUnsignedTypes
+
 fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
     val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
-    var currentIdent: ULong = 0uL
+    var currentIdent: Long = 0
     var outerEnded = false
     var peg: Peg? = null
     ignore(peg)
@@ -528,7 +528,7 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
                         inner.withValue { it.update(t) }
                     } else {
                         peg = null
-                        currentIdent = 0uL
+                        currentIdent = 0
                         // the inner stream ending ends if the outer is ended
                         if (outerEnded) {
                             inner.withValue { it.update(null) }
@@ -552,11 +552,11 @@ fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
 // is just added to the current subscribed streams. We listen to all streams
 // coming.
 //
-// Swift doesn't do recursive types, so we can't make an extension for 
-@kotlin.ExperimentalUnsignedTypes
+// Swift doesn't do recursive types, so we can't make an extension for
+
 fun <T> flattenConcurrently(nested: FStream<FStream<T>>): FStream<T> {
     val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
-    val currentIdents: Locker<MutableList<ULong>> = Locker(value = mutableListOf())
+    val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
     val inner = stream.inner
     stream.parent = nested.subscribeInner {
         val nestedStream = it
@@ -586,7 +586,7 @@ fun <T> flattenConcurrently(nested: FStream<FStream<T>>): FStream<T> {
 }
 
 // Merge a bunch of streams emitting the same T to one.
-@kotlin.ExperimentalUnsignedTypes
+
 fun <T> merge(vararg streams: FStream<T>): FStream<T> {
     val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
@@ -613,7 +613,7 @@ fun <T> merge(vararg streams: FStream<T>): FStream<T> {
 
 // Specialization of FStream that has "memory". Memory means that any
 // new listener added will straight away get the last value that went through the stream.
-@kotlin.ExperimentalUnsignedTypes
+
 open class FMemoryStream<T> // We just inherit to make a clearer type to the user of this API.
     (memoryMode: MemoryMode) : FStream<T>(memoryMode = memoryMode) {
     // The actual implementation of this is entirely in the `Inner` class.
@@ -632,7 +632,7 @@ open class FMemoryStream<T> // We just inherit to make a clearer type to the use
 // sink.update(1)
 // sink.end()
 // ```
-@kotlin.ExperimentalUnsignedTypes
+
 class FSink<T> {
     private var inner: Locker<Inner<T>> = Locker(value = Inner(MemoryMode.NoMemory))
 
@@ -653,7 +653,7 @@ class FSink<T> {
 }
 
 // Helper to collect values from a stream. Mainly useful for tests.
-@kotlin.ExperimentalUnsignedTypes
+
 class Collector<T> {
     private val inner: Locker<CollectorInner<T>> = Locker(value = CollectorInner<T>())
     var parent: Peg? = null
@@ -699,7 +699,7 @@ class Collector<T> {
     }
 }
 
-@kotlin.ExperimentalUnsignedTypes
+
 private data class CollectorInner<T>(
     var alive: Boolean = true,
     var values: MutableList<T> = mutableListOf(),
@@ -718,7 +718,7 @@ private data class CollectorInner<T>(
 // sub.unsubscribe()
 // sink.update(1) // not received
 // ```
-@kotlin.ExperimentalUnsignedTypes
+
 class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 
     private var strong: Strong<Listener<T>>? = strong
@@ -762,7 +762,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 // // be used with care to not spin out of control.
 // ```
 //
-@kotlin.ExperimentalUnsignedTypes
+
 class FImitator<T> {
     var inner: Locker<Inner<T>> = Locker(value = Inner(MemoryMode.NoMemory))
     private var imitating = false
@@ -796,12 +796,12 @@ internal class ImitationThreadLocal() : ThreadLocal<MutableList<Imitation>>() {
     }
 }
 
-@kotlin.ExperimentalUnsignedTypes
+
 private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationThreadLocal())
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
-@kotlin.ExperimentalUnsignedTypes
+
 class Locker<L>(private var value: L) {
     private val semaphore = Semaphore(1, true)
     // Access the locked in value
@@ -833,7 +833,7 @@ enum class MemoryMode {
 }
 
 // The inner type in a FStream that is protected via a Locker
-@kotlin.ExperimentalUnsignedTypes
+
 class Inner<T>(private var memoryMode: MemoryMode) {
     var alive = true
     var ws: MutableList<Weak<Listener<T>>> = mutableListOf()
@@ -970,7 +970,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
 
 // A listener is just a closure here wrapped in a class so
 // we can in turn put it inside a `Weak` or `Strong`.
-@kotlin.ExperimentalUnsignedTypes
+
 class Listener<T>(var closure: (T?) -> Unit) {
     // if we need to hold a reference to something more :)
     var extra: Any? = null
@@ -992,7 +992,7 @@ class Listener<T>(var closure: (T?) -> Unit) {
 // references to a `Listener<T>` so that we can weakly subscribe
 // to a parent stream and make the lifetime of the ARC "live" in
 // the child object.
-@kotlin.ExperimentalUnsignedTypes
+
 data class Peg(
     var parent: Any? = null,
     var l: Any? = null ) {
@@ -1064,7 +1064,7 @@ data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-@kotlin.ExperimentalUnsignedTypes
+
 fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
     val stream = FStream<NTuple2<A,B>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
@@ -1113,7 +1113,7 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-@kotlin.ExperimentalUnsignedTypes
+
 fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3<A,B,C>> {
     val stream = FStream<NTuple3<A,B,C>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
@@ -1176,7 +1176,7 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTup
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-@kotlin.ExperimentalUnsignedTypes
+
 fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4<A, B, C, D>> {
     val stream = FStream<NTuple4<A, B, C, D>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
@@ -1254,7 +1254,7 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-@kotlin.ExperimentalUnsignedTypes
+
 fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5<A, B, C, D, E>> {
     val stream = FStream<NTuple5<A, B, C, D, E>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner

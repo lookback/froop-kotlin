@@ -15,7 +15,6 @@ import kotlin.concurrent.thread
 //  original froopTests.swift Created by martin on 2019-02-23.
 //  Copyright © 2019 Lookback Ltd. All rights reserved.
 //
-@kotlin.ExperimentalUnsignedTypes
 class FroopTests {
 
     @Test
@@ -204,7 +203,7 @@ class FroopTests {
 
             val trans = imitator.stream().map() { it + 40 }
 
-            val mer = merge(trans.take(amount = 1u), sink.stream())
+            val mer = merge(trans.take(amount = 1), sink.stream())
 
             imitator.imitate(other = sink.stream())
 
@@ -267,7 +266,7 @@ class FroopTests {
     fun testDrop() {
         val sink = FSink<Int>()
 
-        val dropped = sink.stream().drop(amount = 2u)
+        val dropped = sink.stream().drop(amount = 2)
         val collect = dropped.collect()
 
         sink.update(0)
@@ -436,7 +435,7 @@ class FroopTests {
     fun testTake() {
         val sink = FSink<Int>()
 
-        val taken = sink.stream().take(amount = 2u)
+        val taken = sink.stream().take(amount = 2)
         val collect = taken.collect()
 
         sink.update(0)
@@ -450,7 +449,7 @@ class FroopTests {
     fun testTakeExact() {
         val sink = FSink<Int>()
 
-        val taken = sink.stream().take(amount = 2u)
+        val taken = sink.stream().take(amount = 2)
         val collect = taken.collect()
 
         sink.update(0)
