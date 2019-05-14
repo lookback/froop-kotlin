@@ -392,8 +392,8 @@ open class FStream<T> {
     // Useful when wanting to filter/gate one stream on a value from some other stream.
     //
     // No value will be emitted unless `other` has produced at least one value.
-    fun <U> sampleCombine(other: FStream<U>): FStream<NTuple2> {
-        val stream = FStream<NTuple2>(memoryMode = MemoryMode.NoMemory)
+    fun <U> sampleCombine(other: FStream<U>): FStream<NTuple2<T,U>> {
+        val stream = FStream<NTuple2<T,U>>(memoryMode = MemoryMode.NoMemory)
         val inner = stream.inner
         // keep track of last U. if this stream ends, we just hold on to the
         // last U forever.
@@ -1022,7 +1022,7 @@ class Strong<W : Any>(var value: W?) : Get {
 fun <T> ignore(x: T) {}
 
 // Need tuples (Kotlin only offers Pairs and Triples
-data class NTuple2(val a: Any?, val b: Any?)
+data class NTuple2<T,U>(val a: T?, val b: U?)
 data class NTuple3(val a: Any?, val b: Any?, val c: Any?)
 data class NTuple4(val a: Any?, val b: Any?, val c: Any?, val d: Any?)
 data class NTuple5(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: Any?)
@@ -1033,8 +1033,8 @@ data class NTuple6(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: An
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2> {
-    val stream = FStream<NTuple2>(memoryMode = MemoryMode.NoMemory)
+fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
+    val stream = FStream<NTuple2<A,B>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null

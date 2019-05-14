@@ -23,7 +23,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : NTuple2 {
+        fun makeLinked() : NTuple2<FSink<Int>,Collector<Int>> {
             val sink = FSink<Int>()
 
             val collect = sink.stream()
@@ -198,7 +198,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : NTuple2 {
+        fun makeLinked() : NTuple2<FSink<Int>,Collector<Int>> {
             val imitator = FImitator<Int>()
             val sink = FSink<Int>()
 
