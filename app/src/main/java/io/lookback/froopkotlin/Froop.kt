@@ -1054,11 +1054,11 @@ class Strong<W : Any>(var value: W?) : Get {
 fun <T> ignore(x: T) {}
 
 // Need tuples (Kotlin only offers Pairs and Triples
-data class NTuple2<T,U>(val a: T?, val b: U?)
-data class NTuple3(val a: Any?, val b: Any?, val c: Any?)
-data class NTuple4(val a: Any?, val b: Any?, val c: Any?, val d: Any?)
-data class NTuple5(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: Any?)
-data class NTuple6(val a: Any?, val b: Any?, val c: Any?, val d: Any?, val e: Any?, val f: Any?)
+data class NTuple2<T,U>(val a: T, val b: U)
+data class NTuple3<T,U,V>(val a: T, val b: U, val c: V)
+data class NTuple4<T,U,V,W>(val a: T, val b: U, val c: V, val d: W)
+data class NTuple5<T,U,V,W,X>(val a: T, val b: U, val c: V, val d: W, val e: X)
+data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
 
 // MARK: ABANDON ALL HOPE YE WHO ENTERS HERE!
 // Combine a number of streams and emit values when any of them emit a value.
@@ -1114,8 +1114,8 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3> {
-    val stream = FStream<NTuple3>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3<A,B,C>> {
+    val stream = FStream<NTuple3<A,B,C>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1177,8 +1177,8 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTup
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4> {
-    val stream = FStream<NTuple4>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4<A, B, C, D>> {
+    val stream = FStream<NTuple4<A, B, C, D>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1255,8 +1255,8 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
 //
 // All streams must have had at least one value before anything happens.
 @kotlin.ExperimentalUnsignedTypes
-fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5> {
-    val stream = FStream<NTuple5>(memoryMode = MemoryMode.NoMemory)
+fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5<A, B, C, D, E>> {
+    val stream = FStream<NTuple5<A, B, C, D, E>>(memoryMode = MemoryMode.NoMemory)
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
