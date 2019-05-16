@@ -26,8 +26,8 @@ class FroopTests {
             val sink = FSink<Int>()
 
             val collect = sink.stream()
-                .filter() { it % 2 == 0 } // there's a risk this intermediary drops
-                .map() { it * 2 }
+                .filter { it % 2 == 0 } // there's a risk this intermediary drops
+                .map { it * 2 }
                 .collect()
 
             return NTuple2(sink, collect)
@@ -36,10 +36,10 @@ class FroopTests {
 
         val linked = makeLinked()
 
-        ((linked.a) as FSink<Int>).update(0)
-        ((linked.a) as FSink<Int>).update(1)
-        ((linked.a) as FSink<Int>).update(2)
-        ((linked.a) as FSink<Int>).end()
+        linked.a.update(0)
+        linked.a.update(1)
+        linked.a.update(2)
+        linked.a.end()
 
         assertEquals(mutableListOf(0, 4), ((linked.b) as Collector<Int>).wait())
     }
@@ -131,8 +131,8 @@ class FroopTests {
             val sink = FSink<Int>()
 
             sink.stream()
-                .map() { it * 2 } // there's a risk this intermediary drops
-                .subscribe() {  // this subscribe adds a strong listener, chain should live
+                .map { it * 2 } // there's a risk this intermediary drops
+                .subscribe {  // this subscribe adds a strong listener, chain should live
                     waitFor.release()
                 }
 
@@ -238,8 +238,8 @@ class FroopTests {
 
         val linked = makeLinked()
 
-        ((linked.a) as FSink<Int>).update(2)
-        ((linked.a) as FSink<Int>).end()
+        linked.a.update(2)
+        linked.a.end()
 
         assertEquals(mutableListOf(2, 42), ((linked.b) as Collector<Int>).take())
     }
@@ -540,6 +540,34 @@ class FroopTests {
 
         assertEquals(mutableListOf(1, 2, 3, 4), collect.wait())
     }
+
+    @Test
+    fun testFlattenMemory() {
+        val sink: FSink<FStream<Int>> = FSink()
+
+        val memoryStream = sink.stream().remember()
+
+        val sink1 = FSink<Int>()
+        sink1.update(0) // missed
+        sink.update(sink1.stream())
+
+        val flat = flatten(nested = memoryStream)
+        val collect = flat.collect()
+
+        // the memory$ first value is dispatched async, and there's no guarantee that
+        // happens before we reach the update() rows below. this second ought to be
+        // enough :)
+        Thread.sleep(1000)
+
+        sink1.update(1)
+        sink1.update(2)
+
+        sink.end() // doesn't end outer, because sink2 is active
+        sink1.end()
+
+        assertEquals(mutableListOf(1, 2), collect.wait())
+    }
+
 
     @Test
     fun testFlattenSame() {
