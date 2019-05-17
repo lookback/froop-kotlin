@@ -49,7 +49,7 @@ class FroopTests {
         val values = mutableListOf<Int>()
 
         fun scoped(stream: FStream<Int>) {
-            stream.map() {
+            stream.map {
                 values.add(it)
             }
             // because x "falls out of scope here", the Peg would
@@ -69,7 +69,7 @@ class FroopTests {
     @Test
     fun testFSink() {
         val sink = FSink<Int>()
-        val collect = sink.stream().collect();
+        val collect = sink.stream().collect()
 
         // do on another thread
         thread(start = true) {
@@ -110,8 +110,8 @@ class FroopTests {
     fun testSubscription() {
         val sink = FSink<Int>()
 
-        var r = mutableListOf<Int>()
-        val sub = sink.stream().subscribe() { r.add(it) }
+        val r = mutableListOf<Int>()
+        val sub = sink.stream().subscribe { r.add(it) }
 
         sink.update(0)
         sink.update(1)
@@ -151,8 +151,8 @@ class FroopTests {
     fun testSubscribeEnd() {
         val sink = FSink<Int>()
 
-        var r = mutableListOf<Int>()
-        sink.stream().subscribeEnd() {
+        val r = mutableListOf<Int>()
+        sink.stream().subscribeEnd {
             r.add(42)
         }
 
@@ -168,7 +168,7 @@ class FroopTests {
     fun testFilter() {
         val sink = FSink<Int>()
 
-        val filt = sink.stream().filter() { it % 2 == 0 }
+        val filt = sink.stream().filter { it % 2 == 0 }
         val collect = filt.collect()
 
         sink.update(0)
@@ -183,7 +183,7 @@ class FroopTests {
     fun testFilterMap() {
         val sink = FSink<Int>()
 
-        val filt = sink.stream().filterMap() { if (it % 2 == 0) "$it" else null }
+        val filt = sink.stream().filterMap { if (it % 2 == 0) "$it" else null }
         val collect = filt.collect()
 
         sink.update(0)
@@ -197,7 +197,7 @@ class FroopTests {
     @Test
     fun testImitate() {
         val imitator = FImitator<Int>()
-        val collect = imitator.stream().collect();
+        val collect = imitator.stream().collect()
 
         val sink = FSink<Int>()
         val stream = sink.stream()
@@ -223,7 +223,7 @@ class FroopTests {
             val imitator = FImitator<Int>()
             val sink = FSink<Int>()
 
-            val trans = imitator.stream().map() { it + 40 }
+            val trans = imitator.stream().map { it + 40 }
 
             val mer = merge(trans.take(amount = 1), sink.stream())
 
@@ -263,13 +263,11 @@ class FroopTests {
 
     @Test
     fun testDedupeBy() {
-        class Foo(i: Int) {
-            val i = i
-        }
+        class Foo(val i: Int)
 
         val sink = FSink<Foo>()
 
-        val deduped = sink.stream().dedupeBy() { it.i }
+        val deduped = sink.stream().dedupeBy { it.i }
         val collect = deduped
                 .map { it.i }
             .collect()
@@ -305,7 +303,7 @@ class FroopTests {
     fun testDropWhile() {
         val sink = FSink<Int>()
 
-        val dropped = sink.stream().dropWhile() { it % 2 == 1 }
+        val dropped = sink.stream().dropWhile { it % 2 == 1 }
         val collect = dropped.collect()
 
         sink.update(1)
@@ -368,7 +366,7 @@ class FroopTests {
     fun testMap() {
         val sink = FSink<Int>()
 
-        val mapped = sink.stream().map() { "$it" }
+        val mapped = sink.stream().map { "$it" }
         val collect = mapped.collect()
 
         sink.update(0)
@@ -398,7 +396,7 @@ class FroopTests {
     fun testRemember() {
         val sink = FSink<Int>()
 
-        val rem = sink.stream().remember();
+        val rem = sink.stream().remember()
 
         sink.update(42)
 
@@ -484,7 +482,7 @@ class FroopTests {
     fun testTakeWhile() {
         val sink = FSink<Int>()
 
-        val taken = sink.stream().takeWhile() { it >= 0 }
+        val taken = sink.stream().takeWhile { it >= 0 }
         val collect = taken.collect()
 
         sink.update(0)
@@ -579,13 +577,12 @@ class FroopTests {
 
         val fooStream = sinkUpdate.stream().fold(Foo(stream = FStream.never(), other = 0.0f))
         { prev, upd ->
-            val next = prev
             if (upd.fooType) {
-                next.stream = upd.stream
+                prev.stream = upd.stream
             } else {
-                next.other = upd.other
+                prev.other = upd.other
             }
-            next
+            prev
         }
 
         val intStream = flatten(nested = fooStream.map { it.stream?.remember() } as FStream<FStream<Int>>)
@@ -700,7 +697,7 @@ class FroopTests {
         val sink1 = FSink<Int>()
         val stream1 = sink1.stream()
 
-        val stream2 = stream1.map() { "$it" }
+        val stream2 = stream1.map { "$it" }
 
         val comb = combine(stream1, stream2)
 

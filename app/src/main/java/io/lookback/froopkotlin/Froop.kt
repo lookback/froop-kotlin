@@ -3,7 +3,6 @@ package io.lookback.froopkotlin
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
-import kotlin.reflect.KType
 
 //
 //  port of froop.swift
@@ -52,9 +51,9 @@ open class FStream<T> {
     val inner: Locker<Inner<T>>
     var parent: Peg? = null
 
-    val ident: Long = streamCount.withAndSetValue({
+    val ident: Long = streamCount.withAndSetValue {
         it + 1
-    })
+    }
 
     override operator fun equals(other: Any?): Boolean {
         if (other == null) {
@@ -66,6 +65,10 @@ open class FStream<T> {
             return ident == otherStream?.ident
         }
         return false
+    }
+
+    override fun hashCode(): Int {
+        return super.hashCode()
     }
 
     // a new stream with a new inner
@@ -151,7 +154,7 @@ open class FStream<T> {
 
     fun drop(amount: Long): FStream<T> {
         var todo = amount + 1
-        return dropWhile { _ ->
+        return dropWhile {
             if (todo > 0) {
                 todo -= 1
             }
@@ -502,7 +505,7 @@ open class FStream<T> {
 // Dedupe the stream by the value in the stream itself
 
 fun <T> FStream<T>.dedupe(): FStream<T> {
-    return dedupeBy({ t: T -> t })
+    return dedupeBy { t: T -> t }
 }
 
 // Flatten a stream of streams, sequentially. This means that any new stream
@@ -657,7 +660,7 @@ class FSink<T> {
 // Helper to collect values from a stream. Mainly useful for tests.
 
 class Collector<T> {
-    private val inner: Locker<CollectorInner<T>> = Locker(value = CollectorInner<T>())
+    private val inner: Locker<CollectorInner<T>> = Locker(value = CollectorInner())
     var parent: Peg? = null
 
     fun update(t: T?) {
@@ -682,9 +685,7 @@ class Collector<T> {
                 null
             }
         }
-        if (waitFor != null) {
-            waitFor.acquire()
-        }
+        waitFor?.acquire()
         return take()
     }
 
@@ -723,7 +724,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 
     private var strong: Strong<Listener<T>>? = strong
     // Set to true to automatically unsubscribe when the subscription deinits
-    var doUnsubscribeOnDeinit: Boolean = true
+    private var doUnsubscribeOnDeinit: Boolean = true
 
     // Unsubscribe from further updates.
     fun unsubscribe() {
@@ -789,7 +790,7 @@ class FImitator<T> {
 
 // Thread local collector of imitations that are to be done once the current stream
 // invocation finishes. This is how we make sync imitations happen.
-internal class ImitationThreadLocal() : ThreadLocal<MutableList<Imitation>>() {
+internal class ImitationThreadLocal : ThreadLocal<MutableList<Imitation>>() {
 
     override fun initialValue(): MutableList<Imitation>? {
         return mutableListOf()
@@ -850,21 +851,21 @@ fun dispatchQueueAsync(checkInterval: Long = 10, condition: () -> Boolean, execu
 
 // The inner type in a FStream that is protected via a Locker
 class Inner<T>(private var memoryMode: MemoryMode) {
-    var alive = true
-    var ws: MutableList<Weak<Listener<T?>>> = mutableListOf()
-    var ss: MutableList<Strong<Listener<T?>>> = mutableListOf()
-    var lastValue: T? = null
-    var delayedDispatch: Deferred<Unit>? = null
+    private var alive = true
+    private var ws: MutableList<Weak<Listener<T?>>> = mutableListOf()
+    private var ss: MutableList<Strong<Listener<T?>>> = mutableListOf()
+    private var lastValue: T? = null
+    private var delayedDispatch: Deferred<Unit>? = null
 
     // Weakly subscribe to values passing this instance
     fun subscribeWeak(onvalue: (T?) -> Unit): Peg {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
                 val temp = lastValue
-                val temp2 = DispatchWorkItem() { onvalue(temp) }
+                val temp2 = DispatchWorkItem { onvalue(temp) }
                 delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
             } else {
-                var temp = DispatchWorkItem() { onvalue(null) }
+                val temp = DispatchWorkItem { onvalue(null) }
                 delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
             }
             return Peg(l = 0 as Any)
@@ -876,7 +877,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         ws.add(w)
         if (memoryMode.isMemory() && lastValue != null) {
             val temp = lastValue
-            val temp2 = DispatchWorkItem() { onvalue(temp) }
+            val temp2 = DispatchWorkItem { onvalue(temp) }
             delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
         }
         return p
@@ -887,10 +888,10 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
                 val temp = lastValue
-                val temp2 = DispatchWorkItem() { onvalue(temp) }
+                val temp2 = DispatchWorkItem { onvalue(temp) }
                 delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
             } else {
-                var temp = DispatchWorkItem() { onvalue(null) }
+                val temp = DispatchWorkItem { onvalue(null) }
                 delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
             }
             return Strong(value = null)
@@ -900,7 +901,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         val s = Strong(value = l)
         if (memoryMode.isMemory() && lastValue != null) {
             val temp = lastValue
-            val temp2 = DispatchWorkItem() { onvalue(temp) }
+            val temp2 = DispatchWorkItem { onvalue(temp) }
             delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
         }
         ss.add(s)
@@ -982,17 +983,11 @@ class Inner<T>(private var memoryMode: MemoryMode) {
             alive = false
             // release all listeners
             ws.forEach {
-                var listener = it.get()
-                if (listener != null) {
-                    listener.destroy()
-                }
+                it.get()?.destroy()
             }
             ws = mutableListOf()
             ss.forEach {
-                var listener = it.get()
-                if (listener != null) {
-                    listener.destroy()
-                }
+                it.get()?.destroy()
             }
             ss = mutableListOf()
             if (memoryMode != MemoryMode.AfterEnd) {
@@ -1012,7 +1007,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
 class Listener<T>(var closure: (T?) -> Unit) {
     // if we need to hold a reference to something more :)
     var extra: Any? = null
-    var valid = true // hack to allow disconnecting a listener
+    private var valid = true // hack to allow disconnecting a listener
 
     fun apply(t: T?) {
         if (valid) {
@@ -1046,7 +1041,7 @@ data class Peg(
     fun destroy() {
         if (l != null) {
             if (l is MutableList<*>) {
-                (l as MutableList<*>).forEach() {
+                (l as MutableList<*>).forEach {
                     if (it is Peg) {
                         it.destroy()
                     }
@@ -1096,7 +1091,7 @@ data class NTuple2<T,U>(val a: T, val b: U)
 data class NTuple3<T,U,V>(val a: T, val b: U, val c: V)
 data class NTuple4<T,U,V,W>(val a: T, val b: U, val c: V, val d: W)
 data class NTuple5<T,U,V,W,X>(val a: T, val b: U, val c: V, val d: W, val e: X)
-data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
+//data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
 
 // MARK: ABANDON ALL HOPE YE WHO ENTERS HERE!
 // Combine a number of streams and emit values when any of them emit a value.
