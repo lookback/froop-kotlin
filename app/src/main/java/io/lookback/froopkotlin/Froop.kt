@@ -1,5 +1,6 @@
 package io.lookback.froopkotlin
 
+import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
 
@@ -832,21 +833,40 @@ enum class MemoryMode {
         this == UntilEnd || this == AfterEnd
 }
 
-// The inner type in a FStream that is protected via a Locker
+data class DispatchWorkItem(val closure: (() -> Unit)?)
 
+suspend fun startConditionally(checkInterval: Long = 10, condition: () -> Boolean, execute: DispatchWorkItem) {
+    while (true) {
+        if (condition()) {
+            break
+        }
+        delay(checkInterval)
+    }
+    execute.closure?.invoke()
+}
+
+fun dispatchQueueAsync(checkInterval: Long = 10, condition: () -> Boolean, execute: DispatchWorkItem) : Deferred<Unit> {
+    return GlobalScope.async{ startConditionally(checkInterval = checkInterval, condition = condition, execute = execute) }
+}
+
+// The inner type in a FStream that is protected via a Locker
 class Inner<T>(private var memoryMode: MemoryMode) {
     var alive = true
     var ws: MutableList<Weak<Listener<T>>> = mutableListOf()
     var ss: MutableList<Strong<Listener<T>>> = mutableListOf()
     var lastValue: T? = null
+    var delayedDispatch: Deferred<Unit>? = null
 
     // Weakly subscribe to values passing this instance
     fun subscribeWeak(onvalue: (T?) -> Unit): Peg {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
-                onvalue(lastValue)
+                val temp = lastValue
+                val temp2 = DispatchWorkItem() { onvalue(temp) }
+                delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
             } else {
-                onvalue(null)
+                var temp = DispatchWorkItem() { onvalue(null) }
+                delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
             }
             return Peg(l = 0 as Any)
         }
@@ -856,7 +876,9 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         val p = Peg(l = l)
         ws.add(w as Weak<Listener<T>>)
         if (memoryMode.isMemory() && lastValue != null) {
-            onvalue(lastValue)
+            val temp = lastValue
+            val temp2 = DispatchWorkItem() { onvalue(temp) }
+            delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
         }
         return p
     }
@@ -865,9 +887,12 @@ class Inner<T>(private var memoryMode: MemoryMode) {
     fun subscribeStrong(peg: Peg?, onvalue: (T?) -> Unit): Strong<Listener<T>> {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
-                onvalue(lastValue)
+                val temp = lastValue
+                val temp2 = DispatchWorkItem() { onvalue(temp) }
+                delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
             } else {
-                onvalue(null)
+                var temp = DispatchWorkItem() { onvalue(null) }
+                delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
             }
             return Strong(value = null)
         }
@@ -875,7 +900,9 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         l.extra = peg
         val s = Strong(value = l)
         if (memoryMode.isMemory() && lastValue != null) {
-            onvalue(lastValue)
+            val temp = lastValue
+            val temp2 = DispatchWorkItem() { onvalue(temp) }
+            delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
         }
         ss.add(s as Strong<Listener<T>>)
         return s
@@ -917,6 +944,18 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         if (!alive) {
             return
         }
+
+        // if one is scheduled do it before we dispatch the next value
+        val dd = delayedDispatch
+        if (dd != null) {
+            delayedDispatch = null
+            if (!dd.isCompleted) {
+                runBlocking {
+                    dd.await()
+                }
+            }
+        }
+
         // strong subscribers get the value first, only
         // keep listeners that haven't unsubscribed
         ss = (ss.filter {
