@@ -436,8 +436,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map() {it.a}, mutableListOf(1, 2, 3))
-        assertEquals(r.map() {it.b}, mutableListOf("foo", "bar", "bar"))
+        assertEquals(r.map {it.a}, mutableListOf(1, 2, 3))
+        assertEquals(r.map {it.b}, mutableListOf("foo", "bar", "bar"))
     }
 
     @Test
@@ -669,8 +669,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(0, 1, 1), r.map() {it.a})
-        assertEquals(mutableListOf("0", "0", "1"), r.map() {it.b})
+        assertEquals(mutableListOf(0, 1, 1), r.map {it.a})
+        assertEquals(mutableListOf("0", "0", "1"), r.map {it.b})
     }
 
     @Test
@@ -691,8 +691,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf<Any?>(null, null), r.map() {it.a})
-        assertEquals(mutableListOf<Any?>(null, "hi"), r.map() {it.b})
+        assertEquals(mutableListOf<Any?>(null, null), r.map {it.a})
+        assertEquals(mutableListOf<Any?>(null, "hi"), r.map {it.b})
     }
 
     @Test
@@ -712,8 +712,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(1), r.map() {it.a})
-        assertEquals(mutableListOf("1"), r.map() {it.b})
+        assertEquals(mutableListOf(1), r.map {it.a})
+        assertEquals(mutableListOf("1"), r.map {it.b})
     }
 
     @Test
@@ -735,9 +735,9 @@ class FroopTests {
 
         val r = collect.wait()
 
-        assertEquals(mutableListOf(1), r.map() {it.a})
-        assertEquals(mutableListOf(2), r.map() {it.b})
-        assertEquals(mutableListOf(3), r.map() {it.c})
+        assertEquals(mutableListOf(1), r.map {it.a})
+        assertEquals(mutableListOf(2), r.map {it.b})
+        assertEquals(mutableListOf(3), r.map {it.c})
     }
 
 }
