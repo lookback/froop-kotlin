@@ -33,7 +33,6 @@ class FroopTests {
             return NTuple2(sink, collect)
         }
 
-
         val linked = makeLinked()
 
         linked.a.update(0)
@@ -41,7 +40,7 @@ class FroopTests {
         linked.a.update(2)
         linked.a.end()
 
-        assertEquals(mutableListOf(0, 4), ((linked.b) as Collector<Int>).wait())
+        assertEquals(mutableListOf(0, 4), linked.b.wait())
     }
 
     @Test
@@ -50,7 +49,7 @@ class FroopTests {
         val values = mutableListOf<Int>()
 
         fun scoped(stream: FStream<Int>) {
-            var x = stream.map() {
+            stream.map() {
                 values.add(it)
             }
             // because x "falls out of scope here", the Peg would
@@ -241,7 +240,7 @@ class FroopTests {
         linked.a.update(2)
         linked.a.end()
 
-        assertEquals(mutableListOf(2, 42), ((linked.b) as Collector<Int>).take())
+        assertEquals(mutableListOf(2, 42), linked.b.take())
     }
 
     @Test

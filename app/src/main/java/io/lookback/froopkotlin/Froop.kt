@@ -3,6 +3,7 @@ package io.lookback.froopkotlin
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
+import kotlin.reflect.KType
 
 //
 //  port of froop.swift
@@ -78,7 +79,7 @@ open class FStream<T> {
     }
 
     // Subscribe to values from this stream.
-    fun subscribe(listener: (T) -> Unit): Subscription<T> =
+    fun subscribe(listener: (T) -> Unit): Subscription<T?> =
         inner.withValue {
             val strong = it.subscribeStrong(peg = this.parent) {
                 if (it != null) {
@@ -89,7 +90,7 @@ open class FStream<T> {
         }
 
     // Subscribe to the end of the stream
-    fun subscribeEnd(listener: () -> Unit): Subscription<T> =
+    fun subscribeEnd(listener: () -> Unit): Subscription<T?> =
         inner.withValue {
             val strong = it.subscribeStrong(peg = this.parent) {
                 if (it == null) {
@@ -114,7 +115,7 @@ open class FStream<T> {
     // Collect values of this stream into an array of values.
     fun collect(): Collector<T> {
         val c = Collector<T>()
-        c.parent = subscribeInner(listener = c.update)
+        c.parent = subscribeInner(listener = c::update)
         return c
     }
 
@@ -271,7 +272,7 @@ open class FStream<T> {
     }
 
     // Internal function that starts an imitator.
-    fun attachImitator(imitator: FImitator<T>): Subscription<T> {
+    fun attachImitator(imitator: FImitator<T>): Subscription<T?> {
         val inner = imitator.inner
         return this.inner.withValue {
             val strong = it.subscribeStrong(peg = this.parent) { t ->
@@ -659,7 +660,7 @@ class Collector<T> {
     private val inner: Locker<CollectorInner<T>> = Locker(value = CollectorInner<T>())
     var parent: Peg? = null
 
-    private fun update2(t: T?) {
+    fun update(t: T?) {
         inner.withValue {
             if (it.alive) {
                 if (t != null) {
@@ -671,8 +672,6 @@ class Collector<T> {
             }
         }
     }
-
-    val update: (T?) -> Unit = { update2(it) }
 
     // Stall the thread and wait for the stream this collector works off to end.
     fun wait(): MutableList<T> {
@@ -779,7 +778,7 @@ class FImitator<T> {
     // Imitators create a cyclic dependency. The imitator will end if the
     // imitated stream ends, but if we want to break the cycle without
     // ending streams, the returned subscription is used.
-    fun imitate(other: FStream<T>): Subscription<T> {
+    fun imitate(other: FStream<T>): Subscription<T?> {
         if (imitating) {
             throw Exception("imitate() used twice on the same imitator")
         }
@@ -833,7 +832,7 @@ enum class MemoryMode {
         this == UntilEnd || this == AfterEnd
 }
 
-data class DispatchWorkItem(val closure: (() -> Unit)?)
+data class DispatchWorkItem(val closure: (() -> Any?)?)
 
 suspend fun startConditionally(checkInterval: Long = 10, condition: () -> Boolean, execute: DispatchWorkItem) {
     while (true) {
@@ -852,8 +851,8 @@ fun dispatchQueueAsync(checkInterval: Long = 10, condition: () -> Boolean, execu
 // The inner type in a FStream that is protected via a Locker
 class Inner<T>(private var memoryMode: MemoryMode) {
     var alive = true
-    var ws: MutableList<Weak<Listener<T>>> = mutableListOf()
-    var ss: MutableList<Strong<Listener<T>>> = mutableListOf()
+    var ws: MutableList<Weak<Listener<T?>>> = mutableListOf()
+    var ss: MutableList<Strong<Listener<T?>>> = mutableListOf()
     var lastValue: T? = null
     var delayedDispatch: Deferred<Unit>? = null
 
@@ -874,7 +873,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         val l = Listener(closure = onvalue)
         val w = Weak(value = l)
         val p = Peg(l = l)
-        ws.add(w as Weak<Listener<T>>)
+        ws.add(w)
         if (memoryMode.isMemory() && lastValue != null) {
             val temp = lastValue
             val temp2 = DispatchWorkItem() { onvalue(temp) }
@@ -884,7 +883,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
     }
 
     // Strongly subscribe to values passing this instance
-    fun subscribeStrong(peg: Peg?, onvalue: (T?) -> Unit): Strong<Listener<T>> {
+    fun subscribeStrong(peg: Peg?, onvalue: (T?) -> Unit): Strong<Listener<T?>> {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
                 val temp = lastValue
@@ -904,7 +903,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
             val temp2 = DispatchWorkItem() { onvalue(temp) }
             delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
         }
-        ss.add(s as Strong<Listener<T>>)
+        ss.add(s)
         return s
     }
 
@@ -966,7 +965,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
                 s.apply(t = t)
                 true
             }
-        }) as MutableList<Strong<Listener<T>>>
+        }) as MutableList<Strong<Listener<T?>>>
         // weak subscribers second, only keep the
         // ones that are still there.
         ws = (ws.filter {
@@ -977,7 +976,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
                 w.apply(t = t)
                 true
             }
-        }) as MutableList<Weak<Listener<T>>>
+        }) as MutableList<Weak<Listener<T?>>>
         // nil indicates the end of the stream
         if (t == null) {
             alive = false
@@ -1123,6 +1122,7 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A,B>> {
     var count = 2
     val pegs: MutableList<Peg> = mutableListOf(
         a.subscribeInner {
+
             val t = it
             if (t != null) {
                 va = t
