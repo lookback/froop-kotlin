@@ -500,8 +500,19 @@ open class FStream<T> {
         return true
     }
 
+    fun beginScope(): FStream<T> {
+
+        return this
+    }
+
+    fun endScope(): Unit {
+        inner.withValue {
+            it?.update(t = null)
+        }
+    }
 }
 
+class FStreamScope
 // Dedupe the stream by the value in the stream itself
 
 fun <T> FStream<T>.dedupe(): FStream<T> {

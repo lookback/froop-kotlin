@@ -54,6 +54,7 @@ class FroopTests {
             }
             // because x "falls out of scope here", the Peg would
             // in a swift froop unsubscribe the .map() from stream.
+            stream.endScope()
         }
 
         val stream = sink.stream()
