@@ -514,8 +514,8 @@ fun <T> FStream<T>.dedupe(): FStream<T> {
 //
 // Swift doesn't do recursive types, so we can't make an extension for
 
-fun <T> flatten(nested: FStream<FStream<T>>): FStream<T> {
-    val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
+fun <T> flatten(nested: FStream<FStream<T>>): FMemoryStream<T> {
+    val stream = FMemoryStream<T>(memoryMode = MemoryMode.UntilEnd)
     val inner = stream.inner
     var currentIdent: Long = 0
     var outerEnded = false
@@ -833,40 +833,20 @@ enum class MemoryMode {
         this == UntilEnd || this == AfterEnd
 }
 
-data class DispatchWorkItem(val closure: (() -> Any?)?)
-
-suspend fun startConditionally(checkInterval: Long = 10, condition: () -> Boolean, execute: DispatchWorkItem) {
-    while (true) {
-        if (condition()) {
-            break
-        }
-        delay(checkInterval)
-    }
-    execute.closure?.invoke()
-}
-
-fun dispatchQueueAsync(checkInterval: Long = 10, condition: () -> Boolean, execute: DispatchWorkItem) : Deferred<Unit> {
-    return GlobalScope.async{ startConditionally(checkInterval = checkInterval, condition = condition, execute = execute) }
-}
-
 // The inner type in a FStream that is protected via a Locker
 class Inner<T>(private var memoryMode: MemoryMode) {
     private var alive = true
     private var ws: MutableList<Weak<Listener<T?>>> = mutableListOf()
     private var ss: MutableList<Strong<Listener<T?>>> = mutableListOf()
     private var lastValue: T? = null
-    private var delayedDispatch: Deferred<Unit>? = null
 
     // Weakly subscribe to values passing this instance
     fun subscribeWeak(onvalue: (T?) -> Unit): Peg {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
-                val temp = lastValue
-                val temp2 = DispatchWorkItem { onvalue(temp) }
-                delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
+                onvalue(lastValue)
             } else {
-                val temp = DispatchWorkItem { onvalue(null) }
-                delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
+                onvalue(null)
             }
             return Peg(l = 0 as Any)
         }
@@ -876,9 +856,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         val p = Peg(l = l)
         ws.add(w)
         if (memoryMode.isMemory() && lastValue != null) {
-            val temp = lastValue
-            val temp2 = DispatchWorkItem { onvalue(temp) }
-            delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
+            onvalue(lastValue)
         }
         return p
     }
@@ -887,12 +865,9 @@ class Inner<T>(private var memoryMode: MemoryMode) {
     fun subscribeStrong(peg: Peg?, onvalue: (T?) -> Unit): Strong<Listener<T?>> {
         if (!alive) {
             if (memoryMode == MemoryMode.AfterEnd) {
-                val temp = lastValue
-                val temp2 = DispatchWorkItem { onvalue(temp) }
-                delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
+                onvalue(lastValue)
             } else {
-                val temp = DispatchWorkItem { onvalue(null) }
-                delayedDispatch = dispatchQueueAsync( condition = { true }, execute = temp )
+                onvalue(null)
             }
             return Strong(value = null)
         }
@@ -900,9 +875,7 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         l.extra = peg
         val s = Strong(value = l)
         if (memoryMode.isMemory() && lastValue != null) {
-            val temp = lastValue
-            val temp2 = DispatchWorkItem { onvalue(temp) }
-            delayedDispatch = dispatchQueueAsync(condition = { true }, execute = temp2)
+            onvalue(lastValue)
         }
         ss.add(s)
         return s
@@ -944,18 +917,6 @@ class Inner<T>(private var memoryMode: MemoryMode) {
         if (!alive) {
             return
         }
-
-        // if one is scheduled do it before we dispatch the next value
-        val dd = delayedDispatch
-        if (dd != null) {
-            delayedDispatch = null
-            if (!dd.isCompleted) {
-                runBlocking {
-                    dd.await()
-                }
-            }
-        }
-
         // strong subscribers get the value first, only
         // keep listeners that haven't unsubscribed
         ss = (ss.filter {
