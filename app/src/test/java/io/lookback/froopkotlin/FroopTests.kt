@@ -1,8 +1,7 @@
 package io.lookback.froopkotlin
 
+import org.junit.Assert.assertEquals
 import org.junit.Test
-
-import org.junit.Assert.*
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
 
