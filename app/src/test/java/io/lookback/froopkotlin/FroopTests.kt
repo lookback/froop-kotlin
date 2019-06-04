@@ -25,8 +25,8 @@ class FroopTests {
             val sink = FSink<Int>()
 
             val collect = sink.stream()
-                .filter { it % 2 == 0 } // there's a risk this intermediary drops
-                .map { it * 2 }
+                .filter ( { it % 2 == 0 } ) // there's a risk this intermediary drops
+                .map ( { it * 2 } )
                 .collect()
 
             return NTuple2(sink, collect)
@@ -48,9 +48,9 @@ class FroopTests {
         val values = mutableListOf<Int>()
 
         fun scoped(stream: FStream<Int>) {
-            stream.map {
+            stream.map ( {
                 values.add(it)
-            }
+            } )
             // because x "falls out of scope here", the Peg would
             // in a swift froop unsubscribe the .map() from stream.
             stream.endScope()
@@ -130,7 +130,7 @@ class FroopTests {
             val sink = FSink<Int>()
 
             sink.stream()
-                .map { it * 2 } // there's a risk this intermediary drops
+                .map ( { it * 2 } ) // there's a risk this intermediary drops
                 .subscribe {  // this subscribe adds a strong listener, chain should live
                     waitFor.release()
                 }
@@ -168,7 +168,7 @@ class FroopTests {
     fun testFilter() {
         val sink = FSink<Int>()
 
-        val filt = sink.stream().filter { it % 2 == 0 }
+        val filt = sink.stream().filter ( { it % 2 == 0 } )
         val collect = filt.collect()
 
         sink.update(0)
@@ -183,7 +183,7 @@ class FroopTests {
     fun testFilterMap() {
         val sink = FSink<Int>()
 
-        val filt = sink.stream().filterMap { if (it % 2 == 0) "$it" else null }
+        val filt = sink.stream().filterMap ( { if (it % 2 == 0) "$it" else null } )
         val collect = filt.collect()
 
         sink.update(0)
@@ -223,7 +223,7 @@ class FroopTests {
             val imitator = FImitator<Int>()
             val sink = FSink<Int>()
 
-            val trans = imitator.stream().map { it + 40 }
+            val trans = imitator.stream().map ( { it + 40 } )
 
             val mer = merge(trans.take(amount = 1), sink.stream())
 
@@ -267,9 +267,9 @@ class FroopTests {
 
         val sink = FSink<Foo>()
 
-        val deduped = sink.stream().dedupeBy { it.i }
+        val deduped = sink.stream().dedupeBy ( { it.i } )
         val collect = deduped
-                .map { it.i }
+                .map ( { it.i } )
             .collect()
 
         sink.update(Foo(0))
@@ -303,7 +303,7 @@ class FroopTests {
     fun testDropWhile() {
         val sink = FSink<Int>()
 
-        val dropped = sink.stream().dropWhile { it % 2 == 1 }
+        val dropped = sink.stream().dropWhile ( { it % 2 == 1 } )
         val collect = dropped.collect()
 
         sink.update(1)
@@ -366,7 +366,7 @@ class FroopTests {
     fun testMap() {
         val sink = FSink<Int>()
 
-        val mapped = sink.stream().map { "$it" }
+        val mapped = sink.stream().map ( { "$it" } )
         val collect = mapped.collect()
 
         sink.update(0)
@@ -482,7 +482,7 @@ class FroopTests {
     fun testTakeWhile() {
         val sink = FSink<Int>()
 
-        val taken = sink.stream().takeWhile { it >= 0 }
+        val taken = sink.stream().takeWhile ( { it >= 0 } )
         val collect = taken.collect()
 
         sink.update(0)
@@ -585,7 +585,7 @@ class FroopTests {
             prev
         }
 
-        val intStream = flatten(nested = fooStream.map { it.stream?.remember() } as FStream<FStream<Int>>)
+        val intStream = flatten(nested = fooStream.map ( { it.stream?.remember() } ) as FStream<FStream<Int>>)
         sinkUpdate.update(FooUpdate(true, stream = sinkInt.stream()))
         val collect = intStream.collect()
 
@@ -697,7 +697,7 @@ class FroopTests {
         val sink1 = FSink<Int>()
         val stream1 = sink1.stream()
 
-        val stream2 = stream1.map { "$it" }
+        val stream2 = stream1.map ( { "$it" } )
 
         val comb = combine(stream1, stream2)
 
@@ -709,8 +709,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(1), r.map {it.a})
-        assertEquals(mutableListOf("1"), r.map {it.b})
+        assertEquals(mutableListOf(1), r.map {it.a} )
+        assertEquals(mutableListOf("1"), r.map {it.b} )
     }
 
     @Test
