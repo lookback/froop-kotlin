@@ -278,21 +278,42 @@ open class FStream<T> {
     fun attachImitator(imitator: FImitator<T>): Subscription<T?> {
         val inner = imitator.inner
         return this.inner.withValue {
+
+            var todo: MutableList<T?> = mutableListOf()
+
+//            fun takeTodo(): MutableList<T?> {
+//                val t = todo // get all from list
+//                todo = mutableListOf() // clear list
+//                return t // return those that were gpt
+//            }
+
             val strong = it.subscribeStrong(peg = this.parent) { t ->
+                // the observed order of values of this subscribe must be preserved
+                // we put each value into the todo array and ensure the array
+                // is processed in order.
+//                val addJob = GlobalScope.async {
+//                    todo.add(t)
+//                }
+
                 // an imitation is a "todo" closure that captures the value to be
                 // dispatched later into the imitator. the todo is added to a
                 // thread local and is called later, after the current evaluation
                 // finishes.
-                val todo: Imitation = {
-                    inner.withValue {
-                        it.update(t)
-                    }
+                val newTodo: Imitation = {
+                    inner.withValue() { it.update(t) }
+//                    inner.withValue() { closure ->
+//                        val newTodo = GlobalScope.run { takeTodo() }
+//                        newTodo.map {
+//                            closure.update(it);
+//                        }
+//                    }
                 }
+                // add to thread local to be executed after current tree eval
                 imitations.withValue {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this todo to the list
                     val v : MutableList<Imitation>? = it.get()
-                    v?.add(todo)
+                    v?.add(newTodo)
                 }
             }
             Subscription(strong)

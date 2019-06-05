@@ -262,6 +262,26 @@ class FroopTests {
     }
 
     @Test
+    fun testDedupeBools() {
+        val sink = FSink<Boolean>()
+
+        val deduped = sink.stream().dedupe()
+        val collect = deduped.collect()
+
+        sink.update(false)
+        sink.update(false)
+        sink.update(true)
+        sink.update(true)
+        sink.update(false)
+        sink.update(false)
+        sink.update(true)
+        sink.update(true)
+        sink.end()
+
+        assertEquals(mutableListOf(false, true, false, true), collect.wait())
+    }
+
+    @Test
     fun testDedupeBy() {
         class Foo(val i: Int)
 
