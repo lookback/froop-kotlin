@@ -121,6 +121,8 @@ open class FStream<T> {
         return c
     }
 
+
+
     // Print every object passing through this stream prefixed by the `label`.
     fun debug(label: String): FStream<T> =
         map ({
@@ -149,8 +151,10 @@ open class FStream<T> {
         return stream
     }
 
-    // Drop a fixed number of initial values, then start emitting.
+    // Dedupe the stream by the value in the stream itself
+    fun dedupe(): FStream<T> = this.dedupeBy({ it })
 
+    // Drop a fixed number of initial values, then start emitting.
     fun drop(amount: Long, memory: Boolean = false): FStream<T> {
         var todo = amount + 1
         return dropWhile({
@@ -244,6 +248,16 @@ open class FStream<T> {
         }
         return stream
     }
+
+    /**
+     * Filter this stream to a subtype.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun <R> narrow(test: (T) -> Boolean): FStream<R> =
+            this.filter(test) as FStream<R>
+
+    /** Narrow to the type parameter. */
+    inline fun <reified R> narrow(): FStream<R> = narrow { it is R }
 
     // Fold the stream by combining values from the past with the new value.
     // The seed is emitted as the first value.
@@ -512,12 +526,6 @@ open class FStream<T> {
 }
 
 class FStreamScope
-// Dedupe the stream by the value in the stream itself
-
-fun <T> FStream<T>.dedupe(memory: Boolean = false): FStream<T> {
-    return dedupeBy({ t: T -> t }, memory = memory)
-}
-
 // Flatten a stream of streams, sequentially. This means that any new stream
 // effectively interrupts the previous stream and we only get values from
 // the latest stream.
