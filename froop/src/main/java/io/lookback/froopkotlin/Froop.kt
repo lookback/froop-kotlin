@@ -1,6 +1,5 @@
 package io.lookback.froopkotlin
 
-import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
 
