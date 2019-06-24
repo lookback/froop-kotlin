@@ -1,4 +1,4 @@
-package io.lookback.froopkotlin
+package io.lookback.froop
 
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
