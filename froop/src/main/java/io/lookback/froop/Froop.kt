@@ -35,11 +35,11 @@ var froopLog: (String, String) -> Unit = { label, message ->
 open class FStream<T> {
 
     companion object {
-        
+
         private var streamCount: Locker<Long> = Locker(value = 0)
 
         // Create a stream that never emits anything. It stays inerts forever.
-        
+
         fun <T> never(): FStream<T> {
             val stream = FStream<T>(memoryMode = MemoryMode.NoMemory)
             stream.inner.withValue { it.update(null) }
@@ -122,10 +122,9 @@ open class FStream<T> {
     }
 
 
-
     // Print every object passing through this stream prefixed by the `label`.
     fun debug(label: String): FStream<T> =
-        map ({
+        map({
             froopLog(label, it.toString())
             it
         })
@@ -254,7 +253,7 @@ open class FStream<T> {
      */
     @Suppress("UNCHECKED_CAST")
     fun <R> narrow(test: (T) -> Boolean): FStream<R> =
-            this.filter(test) as FStream<R>
+        this.filter(test) as FStream<R>
 
     /** Narrow to the type parameter. */
     inline fun <reified R> narrow(): FStream<R> = narrow { it is R }
@@ -304,7 +303,7 @@ open class FStream<T> {
                 imitations.withValue {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this todo to the list
-                    val v : MutableList<Imitation>? = it.get()
+                    val v: MutableList<Imitation>? = it.get()
                     v?.add(todo)
                 }
             }
@@ -411,8 +410,8 @@ open class FStream<T> {
     // Useful when wanting to filter/gate one stream on a value from some other stream.
     //
     // No value will be emitted unless `other` has produced at least one value.
-    fun <U> sampleCombine(other: FStream<U>, memory: Boolean = false): FStream<NTuple2<T,U>> {
-        val stream = FStream<NTuple2<T,U>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+    fun <U> sampleCombine(other: FStream<U>, memory: Boolean = false): FStream<NTuple2<T, U>> {
+        val stream = FStream<NTuple2<T, U>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         // keep track of last U. if this stream ends, we just hold on to the
         // last U forever.
@@ -431,7 +430,7 @@ open class FStream<T> {
                 val u = lastU
                 if (u != null) {
                     inner.withValue {
-                        it.update(NTuple2(t,u))
+                        it.update(NTuple2(t, u))
                     }
                 }
             } else {
@@ -750,7 +749,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
         strong = null
     }
 
-    fun unsubscribeOnDeinit() : Subscription<T> {
+    fun unsubscribeOnDeinit(): Subscription<T> {
         doUnsubscribeOnDeinit = true
         return this
     }
@@ -830,6 +829,7 @@ class Locker<L>(private var value: L) {
         semaphore.release()
         return x
     }
+
     // apply a closure on the value and set the value to the result
     fun withAndSetValue(closure: (L) -> L): L {
         semaphore.acquire()
@@ -1007,7 +1007,8 @@ class Listener<T>(var closure: (T?) -> Unit) {
 
 data class Peg(
     var parent: Any? = null,
-    var l: Any? = null ) {
+    var l: Any? = null
+) {
 
     constructor(l: Any) : this() {
         this.l = l
@@ -1063,13 +1064,15 @@ class Strong<W : Any>(var value: W?) : Get {
 
 // Dummy function to let us ignore values that are not read.
 @Suppress("UNUSED_PARAMETER")
-fun <T> ignore(x: T) {}
+fun <T> ignore(x: T) {
+}
 
 // Need tuples (Kotlin only offers Pairs and Triples
-data class NTuple2<T,U>(val a: T, val b: U)
-data class NTuple3<T,U,V>(val a: T, val b: U, val c: V)
-data class NTuple4<T,U,V,W>(val a: T, val b: U, val c: V, val d: W)
-data class NTuple5<T,U,V,W,X>(val a: T, val b: U, val c: V, val d: W, val e: X)
+data class NTuple2<T, U>(val a: T, val b: U)
+
+data class NTuple3<T, U, V>(val a: T, val b: U, val c: V)
+data class NTuple4<T, U, V, W>(val a: T, val b: U, val c: V, val d: W)
+data class NTuple5<T, U, V, W, X>(val a: T, val b: U, val c: V, val d: W, val e: X)
 //data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
 
 // MARK: ABANDON ALL HOPE YE WHO ENTERS HERE!
@@ -1077,8 +1080,8 @@ data class NTuple5<T,U,V,W,X>(val a: T, val b: U, val c: V, val d: W, val e: X)
 //
 // All streams must have had at least one value before anything happens.
 
-fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStream<NTuple2<A,B>> {
-    val stream = FStream<NTuple2<A,B>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStream<NTuple2<A, B>> {
+    val stream = FStream<NTuple2<A, B>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1088,7 +1091,7 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStre
             if (aa != null) {
                 val bb = vb
                 if (bb != null) {
-                    it.update(NTuple2(aa,bb))
+                    it.update(NTuple2(aa, bb))
                 }
             }
         }
@@ -1127,8 +1130,8 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStre
 //
 // All streams must have had at least one value before anything happens.
 
-fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boolean = false): FStream<NTuple3<A,B,C>> {
-    val stream = FStream<NTuple3<A,B,C>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boolean = false): FStream<NTuple3<A, B, C>> {
+    val stream = FStream<NTuple3<A, B, C>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1141,7 +1144,7 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boole
                 if (bb != null) {
                     val cc = vc
                     if (cc != null) {
-                        it.update(NTuple3(aa,bb,cc))
+                        it.update(NTuple3(aa, bb, cc))
                     }
                 }
             }
@@ -1190,7 +1193,13 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boole
 //
 // All streams must have had at least one value before anything happens.
 
-fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, memory: Boolean = false): FStream<NTuple4<A, B, C, D>> {
+fun <A, B, C, D> combine(
+    a: FStream<A>,
+    b: FStream<B>,
+    c: FStream<C>,
+    d: FStream<D>,
+    memory: Boolean = false
+): FStream<NTuple4<A, B, C, D>> {
     val stream = FStream<NTuple4<A, B, C, D>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
@@ -1207,7 +1216,7 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
                     if (cc != null) {
                         val dd = vd
                         if (dd != null) {
-                            it.update(NTuple4(aa,bb,cc,dd))
+                            it.update(NTuple4(aa, bb, cc, dd))
                         }
                     }
                 }
@@ -1268,8 +1277,16 @@ fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream
 //
 // All streams must have had at least one value before anything happens.
 
-fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>, memory: Boolean = false): FStream<NTuple5<A, B, C, D, E>> {
-    val stream = FStream<NTuple5<A, B, C, D, E>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+fun <A, B, C, D, E> combine(
+    a: FStream<A>,
+    b: FStream<B>,
+    c: FStream<C>,
+    d: FStream<D>,
+    e: FStream<E>,
+    memory: Boolean = false
+): FStream<NTuple5<A, B, C, D, E>> {
+    val stream =
+        FStream<NTuple5<A, B, C, D, E>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
     var vb: B? = null
@@ -1288,7 +1305,7 @@ fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStr
                         if (dd != null) {
                             val ee = ve
                             if (ee != null) {
-                                it.update(NTuple5(aa,bb,cc,dd,ee))
+                                it.update(NTuple5(aa, bb, cc, dd, ee))
                             }
                         }
                     }
