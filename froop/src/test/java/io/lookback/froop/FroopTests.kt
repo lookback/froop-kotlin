@@ -1,4 +1,4 @@
-package io.lookback.froopkotlin
+package io.lookback.froop
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
