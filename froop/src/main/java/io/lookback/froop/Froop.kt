@@ -2,6 +2,7 @@ package io.lookback.froop
 
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
+import java.util.concurrent.locks.ReentrantLock
 
 //
 //  port of froop.swift
@@ -288,7 +289,7 @@ open class FStream<T> {
 
     // Internal function that starts an imitator.
     fun attachImitator(imitator: FImitator<T>): Subscription<T?> {
-        val inner = imitator.inner
+        val imitInner = imitator.inner
         return this.inner.withValue {
 
             var todo: MutableList<T?> = mutableListOf()
@@ -312,13 +313,9 @@ open class FStream<T> {
                 // thread local and is called later, after the current evaluation
                 // finishes.
                 val newTodo: Imitation = {
-                    inner.withValue() { it.update(t) }
-//                    inner.withValue() { closure ->
-//                        val newTodo = GlobalScope.run { takeTodo() }
-//                        newTodo.map {
-//                            closure.update(it);
-//                        }
-//                    }
+                    imitInner.withValue {
+                        it.update(t)
+                    }
                 }
                 // add to thread local to be executed after current tree eval
                 imitations.withValue {
@@ -840,23 +837,31 @@ private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationT
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
-
 class Locker<L>(private var value: L) {
-    private val semaphore = Semaphore(1, true)
+    private val lock = ReentrantLock()
     // Access the locked in value
     fun <X> withValue(closure: (L) -> X): X {
-        semaphore.acquire()
-        val x = closure(value)
-        semaphore.release()
-        return x
+        var x: X? = null
+        lock.lock()
+        try {
+            x = closure(value)
+        } finally {
+            lock.unlock()
+        }
+        return x as X
     }
 
     // apply a closure on the value and set the value to the result
     fun withAndSetValue(closure: (L) -> L): L {
-        semaphore.acquire()
-        value = closure(value)
-        semaphore.release()
-        return value
+        var x: L? = null
+        lock.lock()
+        try {
+            x = closure(value)
+            value = x
+        } finally {
+            lock.unlock()
+        }
+        return x as L
     }
 }
 
