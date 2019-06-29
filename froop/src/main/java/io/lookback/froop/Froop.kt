@@ -292,36 +292,44 @@ open class FStream<T> {
         val imitInner = imitator.inner
         return this.inner.withValue {
 
+            val lock = ReentrantLock(true) // a fair lock should guarantee order
             var todo: MutableList<T?> = mutableListOf()
 
-//            fun takeTodo(): MutableList<T?> {
-//                val t = todo // get all from list
-//                todo = mutableListOf() // clear list
-//                return t // return those that were gpt
-//            }
+            fun takeTodo(): MutableList<T?> {
+                val t = todo // get all from list
+                todo = mutableListOf() // clear list
+                return t // return those that were got
+            }
 
             val strong = it.subscribeStrong(peg = this.parent) { t ->
                 // the observed order of values of this subscribe must be preserved
                 // we put each value into the todo array and ensure the array
                 // is processed in order.
-//                val addJob = GlobalScope.async {
-//                    todo.add(t)
-//                }
+                lock.lock()
+                    todo.add(t)
+                lock.unlock()
 
                 // an imitation is a "todo" closure that captures the value to be
                 // dispatched later into the imitator. the todo is added to a
                 // thread local and is called later, after the current evaluation
                 // finishes.
                 val newTodo: Imitation = {
-                    imitInner.withValue {
-                        it.update(t)
+                    imitInner.withValue { imit ->
+                        val toDispatch = {
+                            lock.lock()
+                            val x = takeTodo()
+                            lock.unlock()
+                            x
+                        }()
+                        toDispatch.forEach { imit.update(it) }
                     }
                 }
                 // add to thread local to be executed after current tree eval
                 imitations.withValue {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this todo to the list
-                    val v : MutableList<Imitation>? = it.get()
+
+                    var v : MutableList<Imitation>? = it.get()
                     v?.add(newTodo)
                 }
             }
@@ -837,11 +845,12 @@ private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationT
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
+@Suppress("UNCHECKED_CAST")
 class Locker<L>(private var value: L) {
-    private val lock = ReentrantLock()
+    private val lock = ReentrantLock(true)
     // Access the locked in value
     fun <X> withValue(closure: (L) -> X): X {
-        var x: X? = null
+        var x: X?
         lock.lock()
         try {
             x = closure(value)
@@ -853,7 +862,7 @@ class Locker<L>(private var value: L) {
 
     // apply a closure on the value and set the value to the result
     fun withAndSetValue(closure: (L) -> L): L {
-        var x: L? = null
+        var x: L?
         lock.lock()
         try {
             x = closure(value)
