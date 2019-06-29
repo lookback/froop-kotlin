@@ -306,7 +306,7 @@ open class FStream<T> {
                 // we put each value into the todo array and ensure the array
                 // is processed in order.
                 lock.lock()
-                    todo.add(t)
+                todo.add(t)
                 lock.unlock()
 
                 // an imitation is a "todo" closure that captures the value to be
@@ -329,7 +329,7 @@ open class FStream<T> {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this todo to the list
 
-                    var v : MutableList<Imitation>? = it.get()
+                    var v: MutableList<Imitation>? = it.get()
                     v?.add(newTodo)
                 }
             }
