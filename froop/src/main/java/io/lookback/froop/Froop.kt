@@ -67,9 +67,9 @@ open class FStream<T> {
         return false
     }
 
-    override fun hashCode(): Int {
-        return super.hashCode()
-    }
+    /** Check if this stream is in memory mode. */
+    val isMemory: Boolean
+        get() = this.inner.withValue { it.memoryMode.isMemory() }
 
     // a new stream with a new inner
     constructor(memoryMode: MemoryMode) {
@@ -808,8 +808,12 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
 //
 
 class FImitator<T> {
-    var inner: Locker<Inner<T>> = Locker(value = Inner(MemoryMode.NoMemory))
+    var inner: Locker<Inner<T>>
     private var imitating = false
+
+    constructor(memory: Boolean = false) {
+        inner = Locker(value = Inner((if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory)))
+    }
 
     // Get a stream from this imitator. Can be used multiple times and each instance
     // will be backed by the same imitator.
@@ -887,7 +891,7 @@ enum class MemoryMode {
 }
 
 // The inner type in a FStream that is protected via a Locker
-class Inner<T>(private var memoryMode: MemoryMode) {
+class Inner<T>(var memoryMode: MemoryMode) {
     private var alive = true
     private var ws: MutableList<Weak<Listener<T?>>> = mutableListOf()
     private var ss: MutableList<Strong<Listener<T?>>> = mutableListOf()
