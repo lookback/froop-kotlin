@@ -854,19 +854,19 @@ class Locker<L>(private var value: L) {
     private val lock = ReentrantLock(true)
     // Access the locked in value
     fun <X> withValue(closure: (L) -> X): X {
-        var x: X?
+        var x: X
         lock.lock()
         try {
             x = closure(value)
         } finally {
             lock.unlock()
         }
-        return x as X
+        return x
     }
 
     // apply a closure on the value and set the value to the result
     fun withAndSetValue(closure: (L) -> L): L {
-        var x: L?
+        var x: L
         lock.lock()
         try {
             x = closure(value)
@@ -874,7 +874,7 @@ class Locker<L>(private var value: L) {
         } finally {
             lock.unlock()
         }
-        return x as L
+        return x
     }
 }
 
