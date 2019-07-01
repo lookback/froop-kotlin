@@ -46,6 +46,12 @@ open class FStream<T> {
             stream.inner.withValue { it.update(null) }
             return stream
         }
+
+        fun <T> of(t: T): FMemoryStream<T> {
+            val stream = FMemoryStream<T>(memoryMode = MemoryMode.AfterEnd)
+            stream.inner.withValue { it.update(t) }
+            return stream
+        }
     }
 
     val inner: Locker<Inner<T>>
