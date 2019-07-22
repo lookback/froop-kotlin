@@ -538,7 +538,7 @@ class FroopTests {
     fun testFlatten() {
         val sink: FSink<FStream<Int>> = FSink()
 
-        val flat = flatten(nested = sink.stream())
+        val flat : FStream<Int> = (sink.stream() as FStream<FStream<Int>>).flatten()
         val collect = flat.collect()
 
         val sink1 = FSink<Int>()
@@ -568,7 +568,7 @@ class FroopTests {
         sink1.update(0) // missed
         sink.update(sink1.stream())
 
-        val flat = flatten(nested = memoryStream)
+        val flat : FStream<Int> = memoryStream.flatten()
         val collect = flat.collect()
 
         // the memory$ first value is dispatched async, and there's no guarantee that
@@ -605,7 +605,7 @@ class FroopTests {
             prev
         }
 
-        val intStream = flatten(nested = fooStream.map ( { it.stream?.remember() } ) as FStream<FStream<Int>>)
+        val intStream : FStream<Int> = (fooStream.map ( { it.stream?.remember() } )).flatten()
         sinkUpdate.update(FooUpdate(true, stream = sinkInt.stream()))
         val collect = intStream.collect()
 
@@ -629,7 +629,7 @@ class FroopTests {
     fun testFlattenConcurrently() {
         val sink: FSink<FStream<Int>> = FSink()
 
-        val flat = flattenConcurrently(nested = sink.stream())
+        val flat : FStream<Int> = sink.stream().flattenConcurrently()
         val collect = flat.collect()
 
         val sink1 = FSink<Int>()

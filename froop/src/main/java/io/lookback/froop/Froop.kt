@@ -138,7 +138,10 @@ open class FStream<T> {
 
     // Dedupe the stream by extracting some equatable value from it.
     // The value is compared for consecutive elements.
-    fun <U> dedupeBy(f: (T) -> U, memory: Boolean = false): FStream<T> {
+    fun <U> dedupeBy(f: (T) -> U): FStream<T> {
+        return dedupeBy(f = f, memory = false)
+    }
+    fun <U> dedupeBy(f: (T) -> U, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         var lastU: U? = null
@@ -161,7 +164,10 @@ open class FStream<T> {
     fun dedupe(): FStream<T> = this.dedupeBy({ it })
 
     // Drop a fixed number of initial values, then start emitting.
-    fun drop(amount: Long, memory: Boolean = false): FStream<T> {
+    fun drop(amount: Long): FStream<T> {
+        return drop(amount = amount, memory = false)
+    }
+    fun drop(amount: Long, memory: Boolean): FStream<T> {
         var todo = amount + 1
         return dropWhile({
             if (todo > 0) {
@@ -173,7 +179,10 @@ open class FStream<T> {
 
     // Drop values while some condition holds true, then start emitting.
     // Once started emitting, it will never drop again.
-    fun dropWhile(f: (T) -> Boolean, memory: Boolean = false): FStream<T> {
+    fun dropWhile(f: (T) -> Boolean): FStream<T> {
+        return dropWhile(f = f, memory = false)
+    }
+    fun dropWhile(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         var dropping = true
@@ -194,7 +203,10 @@ open class FStream<T> {
     }
 
     // Make a stream that ends when some other stream ends.
-    fun <U> endWhen(other: FStream<U>, memory: Boolean = false): FStream<T> {
+    fun <U> endWhen(other: FStream<U>): FStream<T> {
+        return endWhen(other = other, memory = false)
+    }
+    fun <U> endWhen(other: FStream<U>, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         val p1 = subscribeInner { t ->
@@ -213,7 +225,10 @@ open class FStream<T> {
     }
 
     // Filter the stream using some sort of test.
-    fun filter(f: (T) -> Boolean, memory: Boolean = false): FStream<T> {
+    fun filter(f: (T) -> Boolean): FStream<T> {
+        return filter(f = f, memory = false)
+    }
+    fun filter(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         stream.parent = subscribeInner {
@@ -234,7 +249,10 @@ open class FStream<T> {
     }
 
     // Filter the stream and also transform the value.
-    fun <U> filterMap(f: (T) -> U?, memory: Boolean = false): FStream<U> {
+    fun <U> filterMap(f: (T) -> U?): FStream<U> {
+        return filterMap(f = f, memory = false)
+    }
+    fun <U> filterMap(f: (T) -> U?, memory: Boolean): FStream<U> {
         val stream = FStream<U>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         stream.parent = subscribeInner {
@@ -344,7 +362,10 @@ open class FStream<T> {
     }
 
     // Makes a stream that only emits the last value.
-    fun last(memory: Boolean = false): FStream<T> {
+    fun last(): FStream<T> {
+        return last(memory = false)
+    }
+    fun last(memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         var lastValue: T? = null
@@ -365,7 +386,10 @@ open class FStream<T> {
     }
 
     // Transform values of type T to type U.
-    fun <U> map(f: (T) -> U, memory: Boolean = false): FStream<U> {
+    fun <U> map(f: (T) -> U): FStream<U> {
+        return map(f = f, memory = false)
+    }
+    fun <U> map(f: (T) -> U, memory: Boolean): FStream<U> {
         // We want to add a listener to `self` and create a new `FStream` instance
         // that receives updates from that listener and apply the transform
         // `f` to incoming values.
@@ -409,7 +433,10 @@ open class FStream<T> {
     }
 
     // Transform any incoming value to one fixed value.
-    fun <U> mapTo(value: U, memory: Boolean = false): FStream<U> {
+    fun <U> mapTo(value: U): FStream<U> {
+        return mapTo(value = value, memory = false)
+    }
+    fun <U> mapTo(value: U, memory: Boolean): FStream<U> {
         val stream = FStream<U>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         stream.parent = subscribeInner {
@@ -442,7 +469,10 @@ open class FStream<T> {
     // Useful when wanting to filter/gate one stream on a value from some other stream.
     //
     // No value will be emitted unless `other` has produced at least one value.
-    fun <U> sampleCombine(other: FStream<U>, memory: Boolean = false): FStream<NTuple2<T, U>> {
+    fun <U> sampleCombine(other: FStream<U>): FStream<NTuple2<T, U>> {
+        return sampleCombine(other = other, memory = false)
+    }
+    fun <U> sampleCombine(other: FStream<U>, memory: Boolean): FStream<NTuple2<T, U>> {
         val stream = FStream<NTuple2<T, U>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         // keep track of last U. if this stream ends, we just hold on to the
@@ -488,8 +518,10 @@ open class FStream<T> {
     }
 
     // Take a fixed amount of elements, then end.
-
-    fun take(amount: Int, memory: Boolean = false): FStream<T> {
+    fun take(amount: Int): FStream<T> {
+        return take(amount = amount, memory = false)
+    }
+    fun take(amount: Int, memory: Boolean): FStream<T> {
         var todo = amount + 1
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -508,7 +540,10 @@ open class FStream<T> {
     }
 
     // Take values from the stream while some condition hold true, then end the stream.
-    fun takeWhile(f: (T) -> Boolean, memory: Boolean = false): FStream<T> {
+    fun takeWhile(f: (T) -> Boolean): FStream<T> {
+        return takeWhile(f=f, memory=false)
+    }
+    fun takeWhile(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         stream.parent = subscribeInner {
@@ -554,94 +589,100 @@ open class FStream<T> {
             it?.update(t = null)
         }
     }
-}
 
-class FStreamScope
-// Flatten a stream of streams, sequentially. This means that any new stream
-// effectively interrupts the previous stream and we only get values from
-// the latest stream.
-//
-// Swift doesn't do recursive types, so we can't make an extension for
+    // Flatten a stream of streams, sequentially. This means that any new stream
+    // effectively interrupts the previous stream and we only get values from
+    // the latest stream.
+    //
+    fun <T> flatten(): FStream<T> {
+        return flatten(memory = false)
+    }
+    fun <T> flatten(memory: Boolean): FStream<T> {
+        val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+        val inner = stream.inner
+        var currentIdent: Long = 0
+        var outerEnded = false
+        var peg: Peg? = null
+        ignore(peg)
+        stream.parent = (this as FStream<FStream<T>>).subscribeInner {
+            val nestedStream = it
+            if (nestedStream != null) {
+                if (currentIdent != nestedStream.ident) {
+                    // destroy the old peg
+                    peg?.destroy()
+                    peg = nestedStream.subscribeInner {
+                        val t = it
+                        if (t != null) {
+                            inner.withValue { it.update(t) }
+                        } else {
+                            peg = null
+                            currentIdent = 0
+                            // the inner stream ending ends if the outer is ended
+                            if (outerEnded) {
+                                inner.withValue { it.update(null) }
+                            }
+                        }
+                    }
+                    currentIdent = nestedStream.ident
+                }
+            } else {
+                outerEnded = true
+                // the outer stream ending ends if inner is already ended, or not started
+                if (peg == null) {
+                    inner.withValue { it.update(null) }
+                }
+            }
+        }
+        return stream
+    }
 
-fun <T> flatten(nested: FStream<FStream<T>>, memory: Boolean = false): FStream<T> {
-    val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
-    val inner = stream.inner
-    var currentIdent: Long = 0
-    var outerEnded = false
-    var peg: Peg? = null
-    ignore(peg)
-    stream.parent = nested.subscribeInner {
-        val nestedStream = it
-        if (nestedStream != null) {
-            if (currentIdent != nestedStream.ident) {
-                // destroy the old peg
-                peg?.destroy()
+    // Flatten a stream of streams, concurrently. This means that any new stream
+    // is just added to the current subscribed streams. We listen to all streams
+    // coming.
+    //
+    fun <T> flattenConcurrently(): FStream<T> {
+        return flattenConcurrently(memory = false)
+    }
+    fun <T> flattenConcurrently(memory: Boolean): FStream<T> {
+        val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+        val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
+        val inner = stream.inner
+        stream.parent = (this as FStream<FStream<T>>).subscribeInner {
+            val nestedStream = it
+            if (nestedStream != null) {
+                var peg: Peg? = null
+                ignore(peg)
+                val ident = nestedStream.ident
+                // simply overwriting the old value will release the ARC
                 peg = nestedStream.subscribeInner {
                     val t = it
                     if (t != null) {
                         inner.withValue { it.update(t) }
                     } else {
+                        // the inner stream ending does not end the result stream
+                        peg?.destroy()
                         peg = null
-                        currentIdent = 0
-                        // the inner stream ending ends if the outer is ended
-                        if (outerEnded) {
-                            inner.withValue { it.update(null) }
-                        }
+                        currentIdents.withValue { it.removeAll { it == ident } }
                     }
                 }
-                currentIdent = nestedStream.ident
-            }
-        } else {
-            outerEnded = true
-            // the outer stream ending ends if inner is already ended, or not started
-            if (peg == null) {
+                currentIdents.withValue { it.add(ident) }
+            } else {
+                // the outer stream ending does end the result stream
                 inner.withValue { it.update(null) }
             }
         }
+        return stream
     }
-    return stream
+
 }
 
-// Flatten a stream of streams, concurrently. This means that any new stream
-// is just added to the current subscribed streams. We listen to all streams
-// coming.
-//
-// Swift doesn't do recursive types, so we can't make an extension for
-
-fun <T> flattenConcurrently(nested: FStream<FStream<T>>, memory: Boolean = false): FStream<T> {
-    val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
-    val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
-    val inner = stream.inner
-    stream.parent = nested.subscribeInner {
-        val nestedStream = it
-        if (nestedStream != null) {
-            var peg: Peg? = null
-            ignore(peg)
-            val ident = nestedStream.ident
-            // simply overwriting the old value will release the ARC
-            peg = nestedStream.subscribeInner {
-                val t = it
-                if (t != null) {
-                    inner.withValue { it.update(t) }
-                } else {
-                    // the inner stream ending does not end the result stream
-                    peg?.destroy()
-                    peg = null
-                    currentIdents.withValue { it.removeAll { it == ident } }
-                }
-            }
-            currentIdents.withValue { it.add(ident) }
-        } else {
-            // the outer stream ending does end the result stream
-            inner.withValue { it.update(null) }
-        }
-    }
-    return stream
-}
+class FStreamScope
 
 // Merge a bunch of streams emitting the same T to one.
-
-fun <T> merge(vararg streams: FStream<T>, memory: Boolean = false): FStream<T> {
+fun <T> merge(vararg streams: FStream<T>): FStream<T> {
+    return merge(streams = *streams, memory = false)
+}
+fun <T> merge(vararg streams: FStream<T>, memory: Boolean): FStream<T> {
     val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     // TODO a better strategy would be to unsubscribe from streams as they end
@@ -667,7 +708,6 @@ fun <T> merge(vararg streams: FStream<T>, memory: Boolean = false): FStream<T> {
 
 // Specialization of FStream that has "memory". Memory means that any
 // new listener added will straight away get the last value that went through the stream.
-
 open class FMemoryStream<T> // We just inherit to make a clearer type to the user of this API.
     (memoryMode: MemoryMode) : FStream<T>(memoryMode = memoryMode) {
     // The actual implementation of this is entirely in the `Inner` class.
@@ -1124,8 +1164,10 @@ data class NTuple5<T, U, V, W, X>(val a: T, val b: U, val c: V, val d: W, val e:
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-
-fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStream<NTuple2<A, B>> {
+fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A, B>> {
+    return combine(a=a, b=b, memory=false)
+}
+fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean): FStream<NTuple2<A, B>> {
     val stream = FStream<NTuple2<A, B>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
@@ -1174,8 +1216,10 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean = false): FStre
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-
-fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boolean = false): FStream<NTuple3<A, B, C>> {
+fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3<A, B, C>> {
+    return combine(a=a, b=b, c=c, memory=false)
+}
+fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boolean): FStream<NTuple3<A, B, C>> {
     val stream = FStream<NTuple3<A, B, C>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var va: A? = null
@@ -1237,13 +1281,15 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boole
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-
+fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4<A, B, C, D>> {
+    return combine(a=a, b=b, c=c, d=d, memory=false)
+}
 fun <A, B, C, D> combine(
     a: FStream<A>,
     b: FStream<B>,
     c: FStream<C>,
     d: FStream<D>,
-    memory: Boolean = false
+    memory: Boolean
 ): FStream<NTuple4<A, B, C, D>> {
     val stream = FStream<NTuple4<A, B, C, D>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
@@ -1321,14 +1367,16 @@ fun <A, B, C, D> combine(
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
-
+fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5<A, B, C, D, E>> {
+    return combine(a=a, b=b, c=c, d=d, e=e, memory=false)
+}
 fun <A, B, C, D, E> combine(
     a: FStream<A>,
     b: FStream<B>,
     c: FStream<C>,
     d: FStream<D>,
     e: FStream<E>,
-    memory: Boolean = false
+    memory: Boolean
 ): FStream<NTuple5<A, B, C, D, E>> {
     val stream =
         FStream<NTuple5<A, B, C, D, E>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
