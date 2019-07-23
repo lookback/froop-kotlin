@@ -34,12 +34,12 @@ class FroopTests {
 
         val linked = makeLinked()
 
-        linked.a.update(0)
-        linked.a.update(1)
-        linked.a.update(2)
-        linked.a.end()
+        linked.a?.update(0)
+        linked.a?.update(1)
+        linked.a?.update(2)
+        linked.a?.end()
 
-        assertEquals(mutableListOf(0, 4), linked.b.wait())
+        assertEquals(mutableListOf(0, 4), linked.b?.wait())
     }
 
     @Test
@@ -237,10 +237,10 @@ class FroopTests {
 
         val linked = makeLinked()
 
-        linked.a.update(2)
-        linked.a.end()
+        linked.a?.update(2)
+        linked.a?.end()
 
-        assertEquals(mutableListOf(2, 42), linked.b.take())
+        assertEquals(mutableListOf(2, 42), linked.b?.take())
     }
 
     @Test
@@ -428,8 +428,8 @@ class FroopTests {
 
         sink.end()
 
-        assertEquals(c1.wait(), mutableListOf(42, 43))
-        assertEquals(c2.wait(), mutableListOf(43))
+        assertEquals(mutableListOf(42, 43), c1.wait())
+        assertEquals(mutableListOf(43), c2.wait())
     }
 
     @Test
@@ -454,8 +454,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(r.map {it.a}, mutableListOf(1, 2, 3))
-        assertEquals(r.map {it.b}, mutableListOf("foo", "bar", "bar"))
+        assertEquals(mutableListOf(1, 2, 3), r.map {it.a})
+        assertEquals(mutableListOf("foo", "bar", "bar"), r.map {it.b})
     }
 
     @Test
@@ -690,7 +690,7 @@ class FroopTests {
         assertEquals(mutableListOf("0", "0", "1"), r.map {it.b})
     }
 
-//    @Test
+    @Test
     fun testCombineNull() {
         val sink1 = FSink<Int?>()
         val sink2 = FSink<String?>()

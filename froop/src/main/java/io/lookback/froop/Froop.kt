@@ -586,7 +586,7 @@ open class FStream<T> {
 
     fun endScope(): Unit {
         inner.withValue {
-            it?.update(t = null)
+            it.update(t = null)
         }
     }
 
@@ -726,6 +726,7 @@ open class FMemoryStream<T> // We just inherit to make a clearer type to the use
 // sink.update(1)
 // sink.end()
 // ```
+class NullWrapper : Any() {}
 
 class FSink<T> {
     private var inner: Locker<Inner<T>> = Locker(value = Inner(MemoryMode.NoMemory))
@@ -735,9 +736,15 @@ class FSink<T> {
     fun stream(): FStream<T> =
         FStream(inner = this.inner)
 
-    // Update a value into the sink and all connected streams.
+    // Update a value into the sink and all connected streams.  Inserting a null will
+    //   cause a special NullWrapper class to be inserted instead.  This is due
+    //   to the fact that a null entry in a stream is also used as a termination flag.
     fun update(t: T) {
-        this.inner.withValue { it.updateAndImitate(t) }
+        if (t == null) {
+            this.inner.withValue { it.updateAndImitate(t = NullWrapper() as T)}
+        } else {
+            this.inner.withValue { it.updateAndImitate(t) }
+        }
     }
 
     // End this sink. No more values can be sent after 
@@ -951,9 +958,8 @@ class Inner<T>(var memoryMode: MemoryMode) {
             } else {
                 onvalue(null)
             }
-            return Peg(l = 0 as Any)
+            return Peg(l = 0 as Any) // fake peg
         }
-        // fake peg
         val l = Listener(closure = onvalue)
         val w = Weak(value = l)
         val p = Peg(l = l)
@@ -1068,7 +1074,7 @@ class Inner<T>(var memoryMode: MemoryMode) {
 // A listener is just a closure here wrapped in a class so
 // we can in turn put it inside a `Weak` or `Strong`.
 
-class Listener<T>(var closure: (T?) -> Unit) {
+class Listener<T>(val closure: (T?) -> Unit) {
     // if we need to hold a reference to something more :)
     var extra: Any? = null
     private var valid = true // hack to allow disconnecting a listener
@@ -1090,7 +1096,7 @@ class Listener<T>(var closure: (T?) -> Unit) {
 // to a parent stream and make the lifetime of the ARC "live" in
 // the child object.
 
-data class Peg(
+data class Peg (
     var parent: Any? = null,
     var l: Any? = null
 ) {
@@ -1153,11 +1159,68 @@ fun <T> ignore(x: T) {
 }
 
 // Need tuples (Kotlin only offers Pairs and Triples
-data class NTuple2<T, U>(val a: T, val b: U)
+// The tuples are 'smart' about the special NullWrapper data type, replacing their values with null's
+// NTuple1 is not used directly, but is base class of tuples, and is here just to ensure this backing property scheme
+//   is inherited correctly
+open class NTuple1<T>(private val _a: T?) {
 
-data class NTuple3<T, U, V>(val a: T, val b: U, val c: V)
-data class NTuple4<T, U, V, W>(val a: T, val b: U, val c: V, val d: W)
-data class NTuple5<T, U, V, W, X>(val a: T, val b: U, val c: V, val d: W, val e: X)
+    val a: T?
+        get() {
+            if (NullWrapper::class.java.isInstance(_a)) {
+                return null
+            } else {
+                return _a
+            }
+        }
+}
+open class NTuple2<T, U>(private val _a: T?, private val _b: U?)
+    : NTuple1<T>(_a) {
+
+    val b : U?
+        get() {
+            if (NullWrapper::class.java.isInstance(_b)) {
+                return null
+            } else {
+                return _b
+            }
+        }
+}
+open class NTuple3<T, U, V>(private val _a: T?, private val _b: U?, private val _c: V?)
+    : NTuple2<T, U>(_a, _b) {
+
+    val c : V?
+        get() {
+            if (NullWrapper::class.java.isInstance(_c)) {
+                return null
+            } else {
+                return _c
+            }
+        }
+}
+open class NTuple4<T, U, V, W>(private val _a: T?, private val _b: U?, private val _c: V?, private val _d: W?)
+    : NTuple3<T, U, V>(_a, _b, _c) {
+
+    val d : W?
+        get() {
+            if (NullWrapper::class.java.isInstance(_d)) {
+                return null
+            } else {
+                return _d
+            }
+        }
+}
+open class NTuple5<T, U, V, W, X>(private val _a: T?, private val _b: U?, private val _c: V?, private val _d: W?, private val _e: X?)
+    : NTuple4<T, U, V, W>(_a, _b, _c, _d) {
+
+    val e : X?
+        get() {
+            if (NullWrapper::class.java.isInstance(_e)) {
+                return null
+            } else {
+                return _e
+            }
+        }
+}
 //data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
 
 // MARK: ABANDON ALL HOPE YE WHO ENTERS HERE!
