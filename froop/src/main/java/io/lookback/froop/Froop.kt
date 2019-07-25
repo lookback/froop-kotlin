@@ -132,10 +132,10 @@ open class FStream<T> {
 
     // Print every object passing through this stream prefixed by the `label`.
     fun debug(label: String): FStream<T> =
-        map({
+        map {
             froopLog(label, it.toString())
             it
-        })
+        }
 
     // Dedupe the stream by extracting some equatable value from it.
     // The value is compared for consecutive elements.
@@ -162,7 +162,7 @@ open class FStream<T> {
     }
 
     // Dedupe the stream by the value in the stream itself
-    fun dedupe(): FStream<T> = this.dedupeBy({ it })
+    fun dedupe(): FStream<T> = this.dedupeBy { it }
 
     // Drop a fixed number of initial values, then start emitting.
     fun drop(amount: Long): FStream<T> {
