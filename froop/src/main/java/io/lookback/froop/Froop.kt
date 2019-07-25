@@ -47,6 +47,7 @@ open class FStream<T> {
             return stream
         }
 
+        @Suppress("unused")
         fun <T> of(t: T): FMemoryStream<T> {
             val stream = FMemoryStream<T>(memoryMode = MemoryMode.AfterEnd)
             stream.inner.withValue { it.update(t) }
@@ -57,7 +58,7 @@ open class FStream<T> {
     val inner: Locker<Inner<T>>
     var parent: Peg? = null
 
-    val ident: Long = streamCount.withAndSetValue {
+    internal val ident: Long = streamCount.withAndSetValue {
         it + 1
     }
 
@@ -141,7 +142,7 @@ open class FStream<T> {
     fun <U> dedupeBy(f: (T) -> U): FStream<T> {
         return dedupeBy(f = f, memory = false)
     }
-    fun <U> dedupeBy(f: (T) -> U, memory: Boolean): FStream<T> {
+    open fun <U> dedupeBy(f: (T) -> U, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
         var lastU: U? = null
@@ -353,7 +354,7 @@ open class FStream<T> {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this todo to the list
 
-                    var v: MutableList<Imitation>? = it.get()
+                    val v: MutableList<Imitation>? = it.get()
                     v?.add(newTodo)
                 }
             }
@@ -584,7 +585,7 @@ open class FStream<T> {
         return this
     }
 
-    fun endScope(): Unit {
+    fun endScope() {
         inner.withValue {
             it.update(t = null)
         }
@@ -604,6 +605,7 @@ open class FStream<T> {
         var outerEnded = false
         var peg: Peg? = null
         ignore(peg)
+        @Suppress("UNCHECKED_CAST")
         stream.parent = (this as FStream<FStream<T>>).subscribeInner {
             val nestedStream = it
             if (nestedStream != null) {
@@ -647,6 +649,7 @@ open class FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
         val inner = stream.inner
+        @Suppress("UNCHECKED_CAST")
         stream.parent = (this as FStream<FStream<T>>).subscribeInner {
             val nestedStream = it
             if (nestedStream != null) {
@@ -674,9 +677,14 @@ open class FStream<T> {
         return stream
     }
 
-}
+    override fun hashCode(): Int {
+        var result = inner.hashCode()
+        result = 31 * result + (parent?.hashCode() ?: 0)
+        result = 31 * result + ident.hashCode()
+        return result
+    }
 
-class FStreamScope
+}
 
 // Merge a bunch of streams emitting the same T to one.
 fun <T> merge(vararg streams: FStream<T>): FStream<T> {
@@ -741,13 +749,16 @@ class FSink<T> {
     //   to the fact that a null entry in a stream is also used as a termination flag.
     fun update(t: T) {
         if (t == null) {
-            this.inner.withValue { it.updateAndImitate(t = NullWrapper() as T)}
+            this.inner.withValue {
+                @Suppress("UNCHECKED_CAST")
+                it.updateAndImitate(t = NullWrapper() as T)
+            }
         } else {
             this.inner.withValue { it.updateAndImitate(t) }
         }
     }
 
-    // End this sink. No more values can be sent after 
+    // End this sink. No more values can be sent after
     fun end() {
         this.inner.withValue { it.updateAndImitate(null) }
     }
@@ -828,6 +839,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
         strong = null
     }
 
+    @Suppress("unused")
     fun unsubscribeOnDeinit(): Subscription<T> {
         doUnsubscribeOnDeinit = true
         return this
@@ -864,6 +876,7 @@ class FImitator<T> {
     var inner: Locker<Inner<T>>
     private var imitating = false
 
+    @Suppress("ConvertSecondaryConstructorToPrimary")
     constructor(memory: Boolean = false) {
         inner = Locker(value = Inner((if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory)))
     }
@@ -902,12 +915,12 @@ private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationT
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
-@Suppress("UNCHECKED_CAST")
+//@Suppress("UNCHECKED_CAST")
 class Locker<L>(private var value: L) {
     private val lock = ReentrantLock(true)
     // Access the locked in value
     fun <X> withValue(closure: (L) -> X): X {
-        var x: X
+        val x: X
         lock.lock()
         try {
             x = closure(value)
@@ -919,7 +932,7 @@ class Locker<L>(private var value: L) {
 
     // apply a closure on the value and set the value to the result
     fun withAndSetValue(closure: (L) -> L): L {
-        var x: L
+        val x: L
         lock.lock()
         try {
             x = closure(value)
@@ -1173,7 +1186,7 @@ open class NTuple1<T>(private val _a: T?) {
             }
         }
 }
-open class NTuple2<T, U>(private val _a: T?, private val _b: U?)
+open class NTuple2<T, U>( _a: T?, private val _b: U?)
     : NTuple1<T>(_a) {
 
     val b : U?
@@ -1185,40 +1198,35 @@ open class NTuple2<T, U>(private val _a: T?, private val _b: U?)
             }
         }
 }
-open class NTuple3<T, U, V>(private val _a: T?, private val _b: U?, private val _c: V?)
+open class NTuple3<T, U, V>( _a: T?, _b: U?, private val _c: V?)
     : NTuple2<T, U>(_a, _b) {
 
     val c : V?
         get() {
-            if (NullWrapper::class.java.isInstance(_c)) {
-                return null
-            } else {
-                return _c
-            }
+            return if (NullWrapper::class.run { java.isInstance(_c) }) {
+                null
+            } else _c
         }
 }
-open class NTuple4<T, U, V, W>(private val _a: T?, private val _b: U?, private val _c: V?, private val _d: W?)
+open class NTuple4<T, U, V, W>( _a: T?, _b: U?, _c: V?, private val _d: W?)
     : NTuple3<T, U, V>(_a, _b, _c) {
 
     val d : W?
         get() {
-            if (NullWrapper::class.java.isInstance(_d)) {
-                return null
-            } else {
-                return _d
-            }
+            return if (NullWrapper::class.java.isInstance(_d)) {
+                null
+            } else _d
         }
 }
-open class NTuple5<T, U, V, W, X>(private val _a: T?, private val _b: U?, private val _c: V?, private val _d: W?, private val _e: X?)
+open class NTuple5<T, U, V, W, X>( _a: T?, _b: U?, _c: V?, _d: W?, private val _e: X?)
     : NTuple4<T, U, V, W>(_a, _b, _c, _d) {
 
+    @Suppress("unused")
     val e : X?
         get() {
-            if (NullWrapper::class.java.isInstance(_e)) {
-                return null
-            } else {
-                return _e
-            }
+            return if (NullWrapper::class.java.isInstance(_e)) {
+                null
+            } else _e
         }
 }
 //data class NTuple6<T,U,V,W,X,Y>(val a: T, val b: U, val c: V, val d: W, val e: X, val f: Y)
@@ -1344,6 +1352,7 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boole
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
+@Suppress("unused")
 fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4<A, B, C, D>> {
     return combine(a=a, b=b, c=c, d=d, memory=false)
 }
@@ -1430,6 +1439,7 @@ fun <A, B, C, D> combine(
 // Combine a number of streams and emit values when any of them emit a value.
 //
 // All streams must have had at least one value before anything happens.
+@Suppress("unused")
 fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5<A, B, C, D, E>> {
     return combine(a=a, b=b, c=c, d=d, e=e, memory=false)
 }
