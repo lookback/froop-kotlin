@@ -605,7 +605,7 @@ class FroopTests {
             prev
         }
 
-        val intStream : FStream<Int> = (fooStream.map { it.stream?.remember() }).flatten()
+        val intStream : FStream<Int> = (fooStream.map { it.stream!!.remember() }).flatten()
         sinkUpdate.update(FooUpdate(true, stream = sinkInt.stream()))
         val collect = intStream.collect()
 

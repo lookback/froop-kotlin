@@ -591,92 +591,6 @@ open class FStream<T> {
         }
     }
 
-    // Flatten a stream of streams, sequentially. This means that any new stream
-    // effectively interrupts the previous stream and we only get values from
-    // the latest stream.
-    //
-    fun <T> flatten(): FStream<T> {
-        return flatten(memory = false)
-    }
-    fun <T> flatten(memory: Boolean): FStream<T> {
-        val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
-        val inner = stream.inner
-        var currentIdent: Long = 0
-        var outerEnded = false
-        var peg: Peg? = null
-        ignore(peg)
-        @Suppress("UNCHECKED_CAST")
-        stream.parent = (this as FStream<FStream<T>>).subscribeInner {
-            val nestedStream = it
-            if (nestedStream != null) {
-                if (currentIdent != nestedStream.ident) {
-                    // destroy the old peg
-                    peg?.destroy()
-                    peg = nestedStream.subscribeInner {
-                        val t = it
-                        if (t != null) {
-                            inner.withValue { it.update(t) }
-                        } else {
-                            peg = null
-                            currentIdent = 0
-                            // the inner stream ending ends if the outer is ended
-                            if (outerEnded) {
-                                inner.withValue { it.update(null) }
-                            }
-                        }
-                    }
-                    currentIdent = nestedStream.ident
-                }
-            } else {
-                outerEnded = true
-                // the outer stream ending ends if inner is already ended, or not started
-                if (peg == null) {
-                    inner.withValue { it.update(null) }
-                }
-            }
-        }
-        return stream
-    }
-
-    // Flatten a stream of streams, concurrently. This means that any new stream
-    // is just added to the current subscribed streams. We listen to all streams
-    // coming.
-    //
-    fun <T> flattenConcurrently(): FStream<T> {
-        return flattenConcurrently(memory = false)
-    }
-    fun <T> flattenConcurrently(memory: Boolean): FStream<T> {
-        val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
-        val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
-        val inner = stream.inner
-        @Suppress("UNCHECKED_CAST")
-        stream.parent = (this as FStream<FStream<T>>).subscribeInner {
-            val nestedStream = it
-            if (nestedStream != null) {
-                var peg: Peg? = null
-                ignore(peg)
-                val ident = nestedStream.ident
-                // simply overwriting the old value will release the ARC
-                peg = nestedStream.subscribeInner {
-                    val t = it
-                    if (t != null) {
-                        inner.withValue { it.update(t) }
-                    } else {
-                        // the inner stream ending does not end the result stream
-                        peg?.destroy()
-                        peg = null
-                        currentIdents.withValue { it.removeAll { it == ident } }
-                    }
-                }
-                currentIdents.withValue { it.add(ident) }
-            } else {
-                // the outer stream ending does end the result stream
-                inner.withValue { it.update(null) }
-            }
-        }
-        return stream
-    }
-
     override fun hashCode(): Int {
         var result = inner.hashCode()
         result = 31 * result + (parent?.hashCode() ?: 0)
@@ -685,6 +599,89 @@ open class FStream<T> {
     }
 
 }
+
+/// Flatten a stream of streams, sequentially. This means that any new stream
+/// effectively interrupts the previous stream and we only get values from
+/// the latest stream.
+fun <T, U: FStream<T>>FStream<U>.flatten(): FStream<T> = this.flatten(memory = false)
+
+
+fun <T, U: FStream<T>>FStream<U>.flatten(memory: Boolean): FStream<T> {
+    val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+    val inner = stream.inner
+    var currentIdent: Long = 0
+    var outerEnded = false
+    var peg: Peg? = null
+    ignore(peg)
+    stream.parent = this.subscribeInner {
+        val nestedStream = it
+        if (nestedStream != null) {
+            if (currentIdent != nestedStream.ident) {
+                // destroy the old peg
+                peg?.destroy()
+                peg = nestedStream.subscribeInner {
+                    val t = it
+                    if (t != null) {
+                        inner.withValue { it.update(t) }
+                    } else {
+                        peg = null
+                        currentIdent = 0
+                        // the inner stream ending ends if the outer is ended
+                        if (outerEnded) {
+                            inner.withValue { it.update(null) }
+                        }
+                    }
+                }
+                currentIdent = nestedStream.ident
+            }
+        } else {
+            outerEnded = true
+            // the outer stream ending ends if inner is already ended, or not started
+            if (peg == null) {
+                inner.withValue { it.update(null) }
+            }
+        }
+    }
+    return stream
+}
+
+/// Flatten a stream of streams, concurrently. This means that any new stream
+/// is just added to the current subscribed streams. We listen to all streams
+/// coming.
+fun <T, U: FStream<T>>FStream<U>.flattenConcurrently(): FStream<T> = flattenConcurrently(memory = false)
+
+fun <T, U: FStream<T>>FStream<U>.flattenConcurrently(memory: Boolean): FStream<T> {
+    val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
+    val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
+    val inner = stream.inner
+    stream.parent = this.subscribeInner {
+        val nestedStream = it
+        if (nestedStream != null) {
+            var peg: Peg? = null
+            ignore(peg)
+            val ident = nestedStream.ident
+            // simply overwriting the old value will release the ARC
+            peg = nestedStream.subscribeInner {
+                val t = it
+                if (t != null) {
+                    inner.withValue { it.update(t) }
+                } else {
+                    // the inner stream ending does not end the result stream
+                    peg?.destroy()
+                    peg = null
+                    currentIdents.withValue { it.removeAll { it == ident } }
+                }
+            }
+            currentIdents.withValue { it.add(ident) }
+        } else {
+            // the outer stream ending does end the result stream
+            inner.withValue { it.update(null) }
+        }
+    }
+    return stream
+}
+
+
 
 // Merge a bunch of streams emitting the same T to one.
 fun <T> merge(vararg streams: FStream<T>): FStream<T> {
