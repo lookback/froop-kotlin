@@ -899,9 +899,13 @@ class FImitator<T> {
             throw Exception("imitate() used twice on the same imitator")
         }
         imitating = true
-        return other.attachImitator(this)
+        val sub = other.attachImitator(this)
+        hackKeepAll.add(sub)
+        return sub
     }
 }
+
+val hackKeepAll = mutableListOf<Any>()
 
 // Thread local collector of imitations that are to be done once the current stream
 // invocation finishes. This is how we make sync imitations happen.
