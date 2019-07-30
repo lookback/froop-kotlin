@@ -163,6 +163,7 @@ open class FStream<T> {
 
     // Dedupe the stream by the value in the stream itself
     fun dedupe(): FStream<T> = this.dedupeBy { it }
+    fun dedupe(memory: Boolean): FStream<T> = this.dedupeBy({ it }, memory)
 
     // Drop a fixed number of initial values, then start emitting.
     fun drop(amount: Long): FStream<T> {
@@ -734,7 +735,12 @@ open class FMemoryStream<T> // We just inherit to make a clearer type to the use
 class NullWrapper : Any() {}
 
 class FSink<T> {
-    private var inner: Locker<Inner<T>> = Locker(value = Inner(MemoryMode.NoMemory))
+    private var inner: Locker<Inner<T>>
+
+    constructor(memory:Boolean = false) {
+        val memory = if(memory) MemoryMode.UntilEnd else MemoryMode.NoMemory
+        inner = Locker(value = Inner(memory))
+    }
 
     // Get a stream from this sink. Can be used multiple times and each instance
     // will be backed by the same sink.
