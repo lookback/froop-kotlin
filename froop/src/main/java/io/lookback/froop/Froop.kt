@@ -316,6 +316,7 @@ open class FStream<T> {
     // Internal function that starts an imitator.
     fun attachImitator(imitator: FImitator<T>): Subscription<T?> {
         val imitInner = imitator.inner
+        val parentPeg = this.parent
         return this.inner.withValue {
 
             val lock = ReentrantLock(true) // a fair lock should guarantee order
@@ -327,7 +328,7 @@ open class FStream<T> {
                 return t // return those that were got
             }
 
-            val strong = it.subscribeStrong(peg = this.parent) { t ->
+            val strong = it.subscribeStrong(peg = parentPeg) { t ->
                 // the observed order of values of this subscribe must be preserved
                 // we put each value into the todo array and ensure the array
                 // is processed in order.
@@ -613,15 +614,12 @@ fun <T, U: FStream<T>>FStream<U>.flatten(memory: Boolean): FStream<T> {
     var currentIdent: Long = 0
     var outerEnded = false
     var peg: Peg? = null
-    ignore(peg)
-    stream.parent = this.subscribeInner {
-        val nestedStream = it
+    stream.parent = this.subscribeInner { nestedStream ->
         if (nestedStream != null) {
             if (currentIdent != nestedStream.ident) {
                 // destroy the old peg
                 peg?.destroy()
-                peg = nestedStream.subscribeInner {
-                    val t = it
+                peg = nestedStream.subscribeInner { t ->
                     if (t != null) {
                         inner.withValue { it.update(t) }
                     } else {
@@ -830,11 +828,12 @@ private data class CollectorInner<T>(
 // sink.update(1) // not received
 // ```
 
-class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
+class Subscription<T>(strong: Strong<Listener<T>>) {
 
     private var strong: Strong<Listener<T>>? = strong
+
     // Set to true to automatically unsubscribe when the subscription deinits
-    private var doUnsubscribeOnDeinit: Boolean = true
+    private var doUnsubscribeOnDeinit: Boolean = false
 
     // Unsubscribe from further updates.
     fun unsubscribe() {
@@ -848,7 +847,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) : AutoCloseable {
         return this
     }
 
-    override fun close() {
+    protected fun finalize() {
         if (doUnsubscribeOnDeinit) {
             unsubscribe()
         }
@@ -999,10 +998,10 @@ class Inner<T>(var memoryMode: MemoryMode) {
         val l = Listener(closure = onvalue)
         l.extra = peg
         val s = Strong(value = l)
+        ss.add(s)
         if (memoryMode.isMemory() && lastValue != null) {
             onvalue(lastValue)
         }
-        ss.add(s)
         return s
     }
 
@@ -1147,11 +1146,7 @@ private interface Get {
 
 // Weak reference to some object
 class Weak<W : Any>(value: W) : Get {
-    private var value: WeakReference<W?>
-
-    init {
-        this.value = WeakReference(value)
-    }
+    private var value: WeakReference<W> = WeakReference(value)
 
     override fun get(): W? =
         value.get()
