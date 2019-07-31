@@ -364,8 +364,8 @@ open class FStream<T> {
                 imitations.withValue {
                     // it is a ThreadLocal whose value is a list of Imitations
                     // add this to the imitationQueue
-                    val v: MutableList<Imitation>? = it.get()
-                    v?.add(newTodo)
+                    val v: ImitationRunner? = it.get()
+                    v?.append(newTodo)
                 }
             }
             Subscription(strong)
@@ -920,19 +920,34 @@ val hackKeepAll = mutableListOf<Any>()
 
 // Thread local collector of imitations that are to be done once the current stream
 // invocation finishes. This is how we make sync imitations happen.
-internal class ImitationThreadLocal : ThreadLocal<MutableList<Imitation>>() {
+internal class ImitationThreadLocal : ThreadLocal<ImitationRunner>() {
 
-    override fun initialValue(): MutableList<Imitation>? {
-        return mutableListOf()
-    }
+    override fun initialValue() = ImitationRunner()
+
 }
 
+// Once a thread starts doing imitations we keep doing imitation at the same call site
+// even when we encounter (possibly the same) imitation further down the call tree.
+// Per thread, the first imitator to run sets "running = true" and if we encounter the
+// running imitator, we don't start another in the same call stack, just append more todo
+// for the same.
+class ImitationRunner {
+    var imitations = mutableListOf<Imitation>()
+    var running = false
+    fun append(imitation: Imitation) {
+        imitations.add(imitation)
+    }
+    fun take(): MutableList<Imitation> {
+        val l = imitations
+        imitations = mutableListOf()
+        return l
+    }
+}
 
 private val imitations: Locker<ImitationThreadLocal> = Locker(value = ImitationThreadLocal())
 typealias Imitation = () -> Unit
 
 // Helper type to thread safely lock a value L. It is accessed via a closure.
-//@Suppress("UNCHECKED_CAST")
 class Locker<L>(private var value: L) {
     private val lock = ReentrantLock(true)
     // Access the locked in value
@@ -1027,16 +1042,18 @@ class Inner<T>(var memoryMode: MemoryMode) {
         // any imitator that have been gathered during the update is executed now
         // sync with the same update. keep doing this until there are no more
         // imitators added.
+        var isDoingTheRunning = false
         while (true) {
             var todo: MutableList<Imitation> = mutableListOf()
             // this is inside a lock, we must get the value out and release
             // the lock since the imitator run might need the lock to add
             // more imitators (i.e. avoid deadlock).
             imitations.withValue {
-                val td = it.get()
-                if (td != null) {
-                    todo = td // save the list
-                    it.set(mutableListOf())
+                val imitationRunner = it.get() ?: throw Error("Bad thread local imitator state (null)")
+                if (!imitationRunner.running) {
+                    imitationRunner.running = true
+                    isDoingTheRunning = true
+                    todo = imitationRunner.take()
                 }
             }
             if (todo.isEmpty()) {
@@ -1047,6 +1064,12 @@ class Inner<T>(var memoryMode: MemoryMode) {
                 todo.forEach {
                     it()
                 }
+            }
+        }
+        if (isDoingTheRunning) {
+            imitations.withValue {
+                val imitationRunner = it.get() ?: throw Error("Bad thread local imitator state (null)")
+                imitationRunner.running = false
             }
         }
     }
