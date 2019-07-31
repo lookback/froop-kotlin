@@ -329,24 +329,24 @@ open class FStream<T> {
         return this.inner.withValue {
 
             val lock = ReentrantLock(true) // a fair lock should guarantee order
-            var todo: MutableList<T?> = mutableListOf()
+            var imitationQueue: MutableList<T?> = mutableListOf()
 
             fun takeTodo(): MutableList<T?> {
-                val t = todo // get all from list
-                todo = mutableListOf() // clear list
+                val t = imitationQueue // get all from list
+                imitationQueue = mutableListOf() // clear list
                 return t // return those that were got
             }
 
             val strong = it.subscribeStrong(peg = parentPeg) { t ->
                 // the observed order of values of this subscribe must be preserved
-                // we put each value into the todo array and ensure the array
+                // we put each value into the imitationQueue and ensure the array
                 // is processed in order.
                 lock.lock()
-                todo.add(t)
+                imitationQueue.add(t)
                 lock.unlock()
 
-                // an imitation is a "todo" closure that captures the value to be
-                // dispatched later into the imitator. the todo is added to a
+                // an imitation is a closure that captures the value to be
+                // dispatched later into the imitator. the closure is added to a
                 // thread local and is called later, after the current evaluation
                 // finishes.
                 val newTodo: Imitation = {
@@ -363,8 +363,7 @@ open class FStream<T> {
                 // add to thread local to be executed after current tree eval
                 imitations.withValue {
                     // it is a ThreadLocal whose value is a list of Imitations
-                    // add this todo to the list
-
+                    // add this to the imitationQueue
                     val v: MutableList<Imitation>? = it.get()
                     v?.add(newTodo)
                 }
