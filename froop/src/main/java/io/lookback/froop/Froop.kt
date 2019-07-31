@@ -1,3 +1,5 @@
+@file:Suppress("NestedLambdaShadowedImplicitParameter", "MemberVisibilityCanBePrivate")
+
 package io.lookback.froop
 
 import java.lang.ref.WeakReference
@@ -142,6 +144,7 @@ open class FStream<T> {
     fun <U> dedupeBy(f: (T) -> U): FStream<T> {
         return dedupeBy(f = f, memory = false)
     }
+
     open fun <U> dedupeBy(f: (T) -> U, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -163,12 +166,14 @@ open class FStream<T> {
 
     // Dedupe the stream by the value in the stream itself
     fun dedupe(): FStream<T> = this.dedupeBy { it }
+
     fun dedupe(memory: Boolean): FStream<T> = this.dedupeBy({ it }, memory)
 
     // Drop a fixed number of initial values, then start emitting.
     fun drop(amount: Long): FStream<T> {
         return drop(amount = amount, memory = false)
     }
+
     fun drop(amount: Long, memory: Boolean): FStream<T> {
         var todo = amount + 1
         return dropWhile({
@@ -184,6 +189,7 @@ open class FStream<T> {
     fun dropWhile(f: (T) -> Boolean): FStream<T> {
         return dropWhile(f = f, memory = false)
     }
+
     fun dropWhile(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -208,6 +214,7 @@ open class FStream<T> {
     fun <U> endWhen(other: FStream<U>): FStream<T> {
         return endWhen(other = other, memory = false)
     }
+
     fun <U> endWhen(other: FStream<U>, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -230,6 +237,7 @@ open class FStream<T> {
     fun filter(f: (T) -> Boolean): FStream<T> {
         return filter(f = f, memory = false)
     }
+
     fun filter(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -254,6 +262,7 @@ open class FStream<T> {
     fun <U> filterMap(f: (T) -> U?): FStream<U> {
         return filterMap(f = f, memory = false)
     }
+
     fun <U> filterMap(f: (T) -> U?, memory: Boolean): FStream<U> {
         val stream = FStream<U>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -368,6 +377,7 @@ open class FStream<T> {
     fun last(): FStream<T> {
         return last(memory = false)
     }
+
     fun last(memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -392,6 +402,7 @@ open class FStream<T> {
     fun <U> map(f: (T) -> U): FStream<U> {
         return map(f = f, memory = false)
     }
+
     fun <U> map(f: (T) -> U, memory: Boolean): FStream<U> {
         // We want to add a listener to `self` and create a new `FStream` instance
         // that receives updates from that listener and apply the transform
@@ -439,6 +450,7 @@ open class FStream<T> {
     fun <U> mapTo(value: U): FStream<U> {
         return mapTo(value = value, memory = false)
     }
+
     fun <U> mapTo(value: U, memory: Boolean): FStream<U> {
         val stream = FStream<U>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -475,6 +487,7 @@ open class FStream<T> {
     fun <U> sampleCombine(other: FStream<U>): FStream<NTuple2<T, U>> {
         return sampleCombine(other = other, memory = false)
     }
+
     fun <U> sampleCombine(other: FStream<U>, memory: Boolean): FStream<NTuple2<T, U>> {
         val stream = FStream<NTuple2<T, U>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -524,6 +537,7 @@ open class FStream<T> {
     fun take(amount: Int): FStream<T> {
         return take(amount = amount, memory = false)
     }
+
     fun take(amount: Int, memory: Boolean): FStream<T> {
         var todo = amount + 1
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
@@ -544,8 +558,9 @@ open class FStream<T> {
 
     // Take values from the stream while some condition hold true, then end the stream.
     fun takeWhile(f: (T) -> Boolean): FStream<T> {
-        return takeWhile(f=f, memory=false)
+        return takeWhile(f = f, memory = false)
     }
+
     fun takeWhile(f: (T) -> Boolean, memory: Boolean): FStream<T> {
         val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
         val inner = stream.inner
@@ -605,10 +620,10 @@ open class FStream<T> {
 /// Flatten a stream of streams, sequentially. This means that any new stream
 /// effectively interrupts the previous stream and we only get values from
 /// the latest stream.
-fun <T, U: FStream<T>>FStream<U>.flatten(): FStream<T> = this.flatten(memory = false)
+fun <T, U : FStream<T>> FStream<U>.flatten(): FStream<T> = this.flatten(memory = false)
 
 
-fun <T, U: FStream<T>>FStream<U>.flatten(memory: Boolean): FStream<T> {
+fun <T, U : FStream<T>> FStream<U>.flatten(memory: Boolean): FStream<T> {
     val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
     var currentIdent: Long = 0
@@ -647,9 +662,9 @@ fun <T, U: FStream<T>>FStream<U>.flatten(memory: Boolean): FStream<T> {
 /// Flatten a stream of streams, concurrently. This means that any new stream
 /// is just added to the current subscribed streams. We listen to all streams
 /// coming.
-fun <T, U: FStream<T>>FStream<U>.flattenConcurrently(): FStream<T> = flattenConcurrently(memory = false)
+fun <T, U : FStream<T>> FStream<U>.flattenConcurrently(): FStream<T> = flattenConcurrently(memory = false)
 
-fun <T, U: FStream<T>>FStream<U>.flattenConcurrently(memory: Boolean): FStream<T> {
+fun <T, U : FStream<T>> FStream<U>.flattenConcurrently(memory: Boolean): FStream<T> {
     val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val currentIdents: Locker<MutableList<Long>> = Locker(value = mutableListOf())
     val inner = stream.inner
@@ -681,11 +696,11 @@ fun <T, U: FStream<T>>FStream<U>.flattenConcurrently(memory: Boolean): FStream<T
 }
 
 
-
 // Merge a bunch of streams emitting the same T to one.
 fun <T> merge(vararg streams: FStream<T>): FStream<T> {
     return merge(streams = *streams, memory = false)
 }
+
 fun <T> merge(vararg streams: FStream<T>, memory: Boolean): FStream<T> {
     val stream = FStream<T>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
@@ -730,15 +745,12 @@ open class FMemoryStream<T> // We just inherit to make a clearer type to the use
 // sink.update(1)
 // sink.end()
 // ```
-class NullWrapper : Any() {}
+class NullWrapper : Any()
 
-class FSink<T> {
-    private var inner: Locker<Inner<T>>
+class FSink<T>(memory: Boolean = false) {
 
-    constructor(memory:Boolean = false) {
-        val memory = if(memory) MemoryMode.UntilEnd else MemoryMode.NoMemory
-        inner = Locker(value = Inner(memory))
-    }
+    private var inner: Locker<Inner<T>> =
+        Locker(value = Inner(if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
 
     // Get a stream from this sink. Can be used multiple times and each instance
     // will be backed by the same sink.
@@ -1115,7 +1127,7 @@ class Listener<T>(val closure: (T?) -> Unit) {
 // to a parent stream and make the lifetime of the ARC "live" in
 // the child object.
 
-data class Peg (
+data class Peg(
     var parent: Any? = null,
     var l: Any? = null
 ) {
@@ -1181,50 +1193,47 @@ open class NTuple1<T>(private val _a: T?) {
 
     val a: T?
         get() {
-            if (NullWrapper::class.java.isInstance(_a)) {
-                return null
-            } else {
-                return _a
-            }
+            return if (NullWrapper::class.java.isInstance(_a)) {
+                null
+            } else _a
         }
 }
-open class NTuple2<T, U>( _a: T?, private val _b: U?)
-    : NTuple1<T>(_a) {
 
-    val b : U?
+open class NTuple2<T, U>(_a: T?, private val _b: U?) : NTuple1<T>(_a) {
+
+    val b: U?
         get() {
-            if (NullWrapper::class.java.isInstance(_b)) {
-                return null
-            } else {
-                return _b
-            }
+            return if (NullWrapper::class.java.isInstance(_b)) {
+                null
+            } else _b
         }
 }
-open class NTuple3<T, U, V>( _a: T?, _b: U?, private val _c: V?)
-    : NTuple2<T, U>(_a, _b) {
 
-    val c : V?
+open class NTuple3<T, U, V>(_a: T?, _b: U?, private val _c: V?) : NTuple2<T, U>(_a, _b) {
+
+    val c: V?
         get() {
             return if (NullWrapper::class.run { java.isInstance(_c) }) {
                 null
             } else _c
         }
 }
-open class NTuple4<T, U, V, W>( _a: T?, _b: U?, _c: V?, private val _d: W?)
-    : NTuple3<T, U, V>(_a, _b, _c) {
 
-    val d : W?
+open class NTuple4<T, U, V, W>(_a: T?, _b: U?, _c: V?, private val _d: W?) : NTuple3<T, U, V>(_a, _b, _c) {
+
+    val d: W?
         get() {
             return if (NullWrapper::class.java.isInstance(_d)) {
                 null
             } else _d
         }
 }
-open class NTuple5<T, U, V, W, X>( _a: T?, _b: U?, _c: V?, _d: W?, private val _e: X?)
-    : NTuple4<T, U, V, W>(_a, _b, _c, _d) {
+
+open class NTuple5<T, U, V, W, X>(_a: T?, _b: U?, _c: V?, _d: W?, private val _e: X?) :
+    NTuple4<T, U, V, W>(_a, _b, _c, _d) {
 
     @Suppress("unused")
-    val e : X?
+    val e: X?
         get() {
             return if (NullWrapper::class.java.isInstance(_e)) {
                 null
@@ -1238,8 +1247,9 @@ open class NTuple5<T, U, V, W, X>( _a: T?, _b: U?, _c: V?, _d: W?, private val _
 //
 // All streams must have had at least one value before anything happens.
 fun <A, B> combine(a: FStream<A>, b: FStream<B>): FStream<NTuple2<A, B>> {
-    return combine(a=a, b=b, memory=false)
+    return combine(a = a, b = b, memory = false)
 }
+
 fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean): FStream<NTuple2<A, B>> {
     val stream = FStream<NTuple2<A, B>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
@@ -1290,8 +1300,9 @@ fun <A, B> combine(a: FStream<A>, b: FStream<B>, memory: Boolean): FStream<NTupl
 //
 // All streams must have had at least one value before anything happens.
 fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>): FStream<NTuple3<A, B, C>> {
-    return combine(a=a, b=b, c=c, memory=false)
+    return combine(a = a, b = b, c = c, memory = false)
 }
+
 fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boolean): FStream<NTuple3<A, B, C>> {
     val stream = FStream<NTuple3<A, B, C>>(memoryMode = (if (memory) MemoryMode.UntilEnd else MemoryMode.NoMemory))
     val inner = stream.inner
@@ -1356,8 +1367,9 @@ fun <A, B, C> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, memory: Boole
 // All streams must have had at least one value before anything happens.
 @Suppress("unused")
 fun <A, B, C, D> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>): FStream<NTuple4<A, B, C, D>> {
-    return combine(a=a, b=b, c=c, d=d, memory=false)
+    return combine(a = a, b = b, c = c, d = d, memory = false)
 }
+
 fun <A, B, C, D> combine(
     a: FStream<A>,
     b: FStream<B>,
@@ -1442,9 +1454,16 @@ fun <A, B, C, D> combine(
 //
 // All streams must have had at least one value before anything happens.
 @Suppress("unused")
-fun <A, B, C, D, E> combine(a: FStream<A>, b: FStream<B>, c: FStream<C>, d: FStream<D>, e: FStream<E>): FStream<NTuple5<A, B, C, D, E>> {
-    return combine(a=a, b=b, c=c, d=d, e=e, memory=false)
+fun <A, B, C, D, E> combine(
+    a: FStream<A>,
+    b: FStream<B>,
+    c: FStream<C>,
+    d: FStream<D>,
+    e: FStream<E>
+): FStream<NTuple5<A, B, C, D, E>> {
+    return combine(a = a, b = b, c = c, d = d, e = e, memory = false)
 }
+
 fun <A, B, C, D, E> combine(
     a: FStream<A>,
     b: FStream<B>,
