@@ -91,7 +91,7 @@ open class FStream<T> {
     }
 
     // Subscribe to values from this stream.
-    fun subscribe(listener: (T) -> Unit): Subscription<T?> =
+    fun subscribe(listener: (T) -> Unit): Subscription =
         inner.withValue {
             val strong = it.subscribeStrong(peg = this.parent) {
                 if (it != null) {
@@ -102,7 +102,7 @@ open class FStream<T> {
         }
 
     // Subscribe to the end of the stream
-    fun subscribeEnd(listener: () -> Unit): Subscription<T?> =
+    fun subscribeEnd(listener: () -> Unit): Subscription =
         inner.withValue {
             val strong = it.subscribeStrong(peg = this.parent) {
                 if (it == null) {
@@ -323,7 +323,7 @@ open class FStream<T> {
     }
 
     // Internal function that starts an imitator.
-    fun attachImitator(imitator: FImitator<T>): Subscription<T?> {
+    fun attachImitator(imitator: FImitator<T>): Subscription {
         val imitInner = imitator.inner
         val parentPeg = this.parent
         return this.inner.withValue {
@@ -839,9 +839,9 @@ private data class CollectorInner<T>(
 // sink.update(1) // not received
 // ```
 
-class Subscription<T>(strong: Strong<Listener<T>>) {
+class Subscription(strong: Strong<*>) {
 
-    private var strong: Strong<Listener<T>>? = strong
+    private var strong: Strong<*>? = strong
 
     // Set to true to automatically unsubscribe when the subscription deinits
     private var doUnsubscribeOnDeinit: Boolean = false
@@ -853,7 +853,7 @@ class Subscription<T>(strong: Strong<Listener<T>>) {
     }
 
     @Suppress("unused")
-    fun unsubscribeOnDeinit(): Subscription<T> {
+    fun unsubscribeOnDeinit(): Subscription {
         doUnsubscribeOnDeinit = true
         return this
     }
@@ -905,7 +905,7 @@ class FImitator<T> {
     // Imitators create a cyclic dependency. The imitator will end if the
     // imitated stream ends, but if we want to break the cycle without
     // ending streams, the returned subscription is used.
-    fun imitate(other: FStream<T>): Subscription<T?> {
+    fun imitate(other: FStream<T>): Subscription {
         if (imitating) {
             throw Exception("imitate() used twice on the same imitator")
         }
