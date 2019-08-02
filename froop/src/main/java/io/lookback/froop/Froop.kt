@@ -4,6 +4,7 @@ package io.lookback.froop
 
 import java.lang.ref.WeakReference
 import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 
 //
@@ -839,15 +840,27 @@ private data class CollectorInner<T>(
 // sink.update(1) // not received
 // ```
 
+private typealias SubscriptionId = Long
+private val subscriptionCounter = AtomicLong(0)
+// every subscription must survive GC until someone actively calls unsubscribe()
+private val subscriptions = mutableMapOf<SubscriptionId, Subscription>()
+
 class Subscription(strong: Strong<*>) {
 
+    private val id: SubscriptionId = subscriptionCounter.getAndIncrement()
+
     private var strong: Strong<*>? = strong
+
+    init {
+        subscriptions[id] = this
+    }
 
     // Set to true to automatically unsubscribe when the subscription deinits
     private var doUnsubscribeOnDeinit: Boolean = false
 
     // Unsubscribe from further updates.
     fun unsubscribe() {
+        subscriptions.remove(id)
         strong?.clear()
         strong = null
     }
