@@ -868,6 +868,7 @@ class Subscription(strong: Strong<*>) {
     @Suppress("unused")
     fun unsubscribeOnDeinit(): Subscription {
         doUnsubscribeOnDeinit = true
+        subscriptions.remove(id)
         return this
     }
 
