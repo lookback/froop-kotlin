@@ -1060,7 +1060,7 @@ class Inner<T>(var memoryMode: MemoryMode) {
             // more imitators (i.e. avoid deadlock).
             imitations.withValue {
                 val imitationRunner = it.get() ?: throw Error("Bad thread local imitator state (null)")
-                if (!imitationRunner.running) {
+                if (!imitationRunner.running || isDoingTheRunning) {
                     imitationRunner.running = true
                     isDoingTheRunning = true
                     todo = imitationRunner.take()
