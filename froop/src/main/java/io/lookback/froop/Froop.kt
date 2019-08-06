@@ -135,10 +135,10 @@ open class FStream<T> {
 
     // Print every object passing through this stream prefixed by the `label`.
     fun debug(label: String): FStream<T> =
-        map {
+        map({
             froopLog(label, it.toString())
             it
-        }
+        }, memory = this.isMemory)
 
     // Dedupe the stream by extracting some equatable value from it.
     // The value is compared for consecutive elements.
