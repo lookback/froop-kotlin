@@ -21,7 +21,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : NTuple2<FSink<Int>,Collector<Int>> {
+        fun makeLinked(): Tuple2<FSink<Int>, Collector<Int>> {
             val sink = FSink<Int>()
 
             val collect = sink.stream()
@@ -29,17 +29,17 @@ class FroopTests {
                 .map { it * 2 }
                 .collect()
 
-            return NTuple2(sink, collect)
+            return Tuple2(sink, collect)
         }
 
         val linked = makeLinked()
 
-        linked.a?.update(0)
-        linked.a?.update(1)
-        linked.a?.update(2)
-        linked.a?.end()
+        linked.a.update(0)
+        linked.a.update(1)
+        linked.a.update(2)
+        linked.a.end()
 
-        assertEquals(mutableListOf(0, 4), linked.b?.wait())
+        assertEquals(mutableListOf(0, 4), linked.b.wait())
     }
 
     @Test
@@ -126,12 +126,13 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked(waitFor: Semaphore) : FSink<Int> {
+        fun makeLinked(waitFor: Semaphore): FSink<Int> {
             val sink = FSink<Int>()
 
             sink.stream()
                 .map { it * 2 } // there's a risk this intermediary drops
-                .subscribe {  // this subscribe adds a strong listener, chain should live
+                .subscribe {
+                    // this subscribe adds a strong listener, chain should live
                     waitFor.release()
                 }
 
@@ -219,7 +220,7 @@ class FroopTests {
         // this way we get a scope that deallocates
         // arcs at the end of it. the chain should
         // survive it.
-        fun makeLinked() : NTuple2<FSink<Int>,Collector<Int>> {
+        fun makeLinked(): Tuple2<FSink<Int>, Collector<Int>> {
             val imitator = FImitator<Int>()
             val sink = FSink<Int>()
 
@@ -231,16 +232,16 @@ class FroopTests {
 
             val collect = mer.collect()
 
-            return NTuple2(sink, collect)
+            return Tuple2(sink, collect)
         }
 
 
         val linked = makeLinked()
 
-        linked.a?.update(2)
-        linked.a?.end()
+        linked.a.update(2)
+        linked.a.end()
 
-        assertEquals(mutableListOf(2, 42), linked.b?.take())
+        assertEquals(mutableListOf(2, 42), linked.b.take())
     }
 
     @Test
@@ -289,7 +290,7 @@ class FroopTests {
 
         val deduped = sink.stream().dedupeBy { it.i }
         val collect = deduped
-                .map { it.i }
+            .map { it.i }
             .collect()
 
         sink.update(Foo(0))
@@ -454,8 +455,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(1, 2, 3), r.map {it.a})
-        assertEquals(mutableListOf("foo", "bar", "bar"), r.map {it.b})
+        assertEquals(mutableListOf(1, 2, 3), r.map { it.a })
+        assertEquals(mutableListOf("foo", "bar", "bar"), r.map { it.b })
     }
 
     @Test
@@ -538,7 +539,7 @@ class FroopTests {
     fun testFlatten() {
         val sink: FSink<FStream<Int>> = FSink()
 
-        val flat : FStream<Int> = (sink.stream()).flatten()
+        val flat: FStream<Int> = (sink.stream()).flatten()
         val collect = flat.collect()
 
         val sink1 = FSink<Int>()
@@ -568,7 +569,7 @@ class FroopTests {
         sink1.update(0) // missed
         sink.update(sink1.stream())
 
-        val flat : FStream<Int> = memoryStream.flatten()
+        val flat: FStream<Int> = memoryStream.flatten()
         val collect = flat.collect()
 
         // the memory$ first value is dispatched async, and there's no guarantee that
@@ -605,7 +606,7 @@ class FroopTests {
             prev
         }
 
-        val intStream : FStream<Int> = (fooStream.map { it.stream!!.remember() }).flatten()
+        val intStream: FStream<Int> = (fooStream.map { it.stream!!.remember() }).flatten()
         sinkUpdate.update(FooUpdate(true, stream = sinkInt.stream()))
         val collect = intStream.collect()
 
@@ -629,7 +630,7 @@ class FroopTests {
     fun testFlattenConcurrently() {
         val sink: FSink<FStream<Int>> = FSink()
 
-        val flat : FStream<Int> = sink.stream().flattenConcurrently()
+        val flat: FStream<Int> = sink.stream().flattenConcurrently()
         val collect = flat.collect()
 
         val sink1 = FSink<Int>()
@@ -664,7 +665,7 @@ class FroopTests {
         sink2.update(11)
         sink2.end()
 
-        assertEquals(mutableListOf(0,10,1,11), collect.wait())
+        assertEquals(mutableListOf(0, 10, 1, 11), collect.wait())
     }
 
     @Test
@@ -686,8 +687,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(0, 1, 1), r.map {it.a})
-        assertEquals(mutableListOf("0", "0", "1"), r.map {it.b})
+        assertEquals(mutableListOf(0, 1, 1), r.map { it.a })
+        assertEquals(mutableListOf("0", "0", "1"), r.map { it.b })
     }
 
     @Test
@@ -708,8 +709,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf<Any?>(null, null), r.map {it.a})
-        assertEquals(mutableListOf<Any?>(null, "hi"), r.map {it.b})
+        assertEquals(mutableListOf<Any?>(null, null), r.map { it.a })
+        assertEquals(mutableListOf<Any?>(null, "hi"), r.map { it.b })
     }
 
     @Test
@@ -729,8 +730,8 @@ class FroopTests {
         val r = collect.wait()
 
         // swift tuples are not equatable?!
-        assertEquals(mutableListOf(1), r.map {it.a} )
-        assertEquals(mutableListOf("1"), r.map {it.b} )
+        assertEquals(mutableListOf(1), r.map { it.a })
+        assertEquals(mutableListOf("1"), r.map { it.b })
     }
 
     @Test
@@ -752,9 +753,9 @@ class FroopTests {
 
         val r = collect.wait()
 
-        assertEquals(mutableListOf(1), r.map {it.a})
-        assertEquals(mutableListOf(2), r.map {it.b})
-        assertEquals(mutableListOf(3), r.map {it.c})
+        assertEquals(mutableListOf(1), r.map { it.a })
+        assertEquals(mutableListOf(2), r.map { it.b })
+        assertEquals(mutableListOf(3), r.map { it.c })
     }
 
 }
