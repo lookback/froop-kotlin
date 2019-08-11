@@ -1,4 +1,4 @@
-@file:Suppress("NestedLambdaShadowedImplicitParameter", "MemberVisibilityCanBePrivate")
+@file:Suppress("NestedLambdaShadowedImplicitParameter", "MemberVisibilityCanBePrivate", "unused")
 
 package io.lookback.froop
 
@@ -758,6 +758,9 @@ class FSink<T>(memory: Boolean = false) {
         this.inner.withValue { it.updateAndImitate(null) }
     }
 }
+
+val FStream<Boolean>.ifTrue get() = this.filter { it }
+val FStream<Boolean>.ifFalse get() = this.filter { !it }
 
 // Helper to collect values from a stream. Mainly useful for tests.
 
