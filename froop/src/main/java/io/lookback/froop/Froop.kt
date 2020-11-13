@@ -689,7 +689,7 @@ fun <T, U : FStream<T>> FStream<U>.flattenConcurrently(memory: Boolean): FStream
 
 // Merge a bunch of streams emitting the same T to one.
 fun <T> merge(vararg streams: FStream<T>): FStream<T> {
-    return merge(streams = *streams, memory = false)
+    return merge(streams = streams, memory = false)
 }
 
 fun <T> merge(vararg streams: FStream<T>, memory: Boolean): FStream<T> {
