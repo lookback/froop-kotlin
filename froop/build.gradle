@@ -1,8 +1,8 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
 android {
+    namespace = "io.lookback.froop"
     compileSdk 33
     defaultConfig {
         minSdkVersion 23
