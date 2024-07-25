@@ -3,16 +3,23 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace = "io.lookback.froop"
-    compileSdk 33
+    compileSdk 34
     defaultConfig {
         minSdkVersion 23
-        targetSdkVersion 33
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     sourceSets {
         main.java.srcDirs += 'src/main/java'
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
     }
     buildTypes {
         debug {
